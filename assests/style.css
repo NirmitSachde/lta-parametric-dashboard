@@ -1,10 +1,29 @@
 /* ==========================================================================
-   Parametric Design Dashboard — CSS Overrides
+   Parametric Design Dashboard — Responsive CSS
    Auto-loaded by Dash from the assets/ directory.
    ========================================================================== */
 
+/* --- Base reset for responsiveness --- */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+/* Prevent Plotly graphs from overflowing containers */
+.js-plotly-plot, .plotly, .plot-container {
+    width: 100% !important;
+}
+
+.js-plotly-plot .main-svg {
+    max-width: 100%;
+}
+
 /* --- NUCLEAR OPTION: Force ALL inputs to white bg + black text --- */
-/* This catches any input Dash renders regardless of class names */
 input,
 input[type="text"],
 input[type="number"],
@@ -22,7 +41,7 @@ textarea {
     -webkit-appearance: none !important;
 }
 
-/* --- Dash-specific slider tooltip --- */
+/* --- Dash slider tooltip --- */
 .rc-slider-tooltip-inner,
 [class*="tooltip"] {
     background-color: #FFFFFF !important;
@@ -48,19 +67,19 @@ div[class*="Slider"] input {
     border: 1px solid #555 !important;
 }
 
-/* --- Slider track (filled portion) --- */
+/* --- Slider track --- */
 .rc-slider-track {
     background-color: #3B82A0 !important;
     height: 4px !important;
 }
 
-/* --- Slider handle (draggable dot) --- */
+/* --- Slider handle --- */
 .rc-slider-handle {
     border-color: #5BA4B5 !important;
     background-color: #5BA4B5 !important;
-    width: 14px !important;
-    height: 14px !important;
-    margin-top: -5px !important;
+    width: 16px !important;
+    height: 16px !important;
+    margin-top: -6px !important;
 }
 
 .rc-slider-handle:hover,
@@ -71,22 +90,16 @@ div[class*="Slider"] input {
     box-shadow: 0 0 4px rgba(91, 164, 181, 0.5) !important;
 }
 
-/* --- Slider rail (unfilled track) --- */
+/* --- Slider rail --- */
 .rc-slider-rail {
     background-color: #1E2A38 !important;
     height: 4px !important;
 }
 
-/* --- Override any dark-mode browser preferences --- */
-* {
-    color-scheme: light dark !important;
-}
-
-/* --- Dropdown (for unit system toggle) --- */
+/* --- Dropdown styling --- */
 .Select-control,
 .Select-menu-outer,
 .Select-option,
-.Select-value-label,
 .dash-dropdown .Select-control {
     background-color: #111820 !important;
     color: #E2E8F0 !important;
@@ -109,7 +122,6 @@ div[class*="Slider"] input {
     border-color: #5BA4B5 transparent transparent !important;
 }
 
-/* Dash dropdown newer versions */
 .dash-dropdown .VirtualizedSelectOption {
     background-color: #111820 !important;
     color: #E2E8F0 !important;
@@ -118,4 +130,53 @@ div[class*="Slider"] input {
 .dash-dropdown .VirtualizedSelectFocusedOption {
     background-color: #1E2A38 !important;
     color: #FFFFFF !important;
+}
+
+/* ==========================================================================
+   RESPONSIVE BREAKPOINTS
+   ========================================================================== */
+
+/* --- Tablet and below (< 768px): stack everything vertically --- */
+@media screen and (max-width: 768px) {
+    /* Make the main grid single-column */
+    #_dash-app-content > div > div {
+        padding: 8px !important;
+    }
+
+    /* Force gauge graphs to be smaller */
+    .dash-graph {
+        height: auto !important;
+    }
+
+    /* Make the header smaller */
+    h1 {
+        font-size: 14px !important;
+        letter-spacing: 2px !important;
+    }
+
+    /* Stack unit toggle */
+    .dash-dropdown {
+        width: 100% !important;
+    }
+}
+
+/* --- Phone (< 480px): maximum compression --- */
+@media screen and (max-width: 480px) {
+    h1 {
+        font-size: 12px !important;
+        letter-spacing: 1px !important;
+    }
+
+    /* Reduce card padding */
+    .dash-graph {
+        padding: 2px !important;
+    }
+}
+
+/* --- Large screens (> 1400px): limit max width for readability --- */
+@media screen and (min-width: 1400px) {
+    #_dash-app-content > div {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
 }

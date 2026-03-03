@@ -56,6 +56,9 @@ app = dash.Dash(
     __name__,
     title="LTA Parametric Design Dashboard",
     update_title="Computing...",
+    meta_tags=[
+        {"name": "viewport", "content": "width=device-width, initial-scale=1.0, maximum-scale=1.0"},
+    ],
 )
 server = app.server  # Expose for gunicorn
 
@@ -298,7 +301,7 @@ app.layout = html.Div(
         "color": C_TEXT,
         "fontFamily": FONT_FAMILY,
         "minHeight": "100vh",
-        "padding": "16px 20px",
+        "padding": "12px",
     },
     children=[
         # --- CSS overrides injected via hidden markdown ---
@@ -350,6 +353,7 @@ app.layout = html.Div(
                 "gap": "10px",
                 "marginBottom": "14px",
                 "padding": "0 4px",
+                "flexWrap": "wrap",
             },
             children=[
                 html.Span(
@@ -373,7 +377,8 @@ app.layout = html.Div(
                     clearable=False,
                     searchable=False,
                     style={
-                        "width": "260px",
+                        "width": "240px",
+                        "minWidth": "200px",
                         "backgroundColor": CARD_BG,
                         "fontFamily": FONT_FAMILY,
                         "fontSize": "12px",
@@ -389,8 +394,8 @@ app.layout = html.Div(
                 # ----- LEFT: Input Sliders + Computed Values -----
                 html.Div(
                     style={
-                        "flex": "0 0 340px",
-                        "minWidth": "300px",
+                        "flex": "1 1 320px",
+                        "minWidth": "0",
                     },
                     children=[
                         section_header("Input Parameters"),
@@ -412,7 +417,7 @@ app.layout = html.Div(
 
                 # ----- RIGHT: Instrument Panel (Gauges) -----
                 html.Div(
-                    style={"flex": "1", "minWidth": "480px"},
+                    style={"flex": "2 1 400px", "minWidth": "0"},
                     children=[
                         section_header("Instrument Panel"),
 
@@ -423,7 +428,7 @@ app.layout = html.Div(
                                 html.Div(
                                     style={
                                         "flex": "1",
-                                        "minWidth": "180px",
+                                        "minWidth": "140px",
                                         "backgroundColor": CARD_BG,
                                         "border": f"1px solid {CARD_BORDER}",
                                         "borderRadius": "6px",
@@ -434,7 +439,7 @@ app.layout = html.Div(
                                 html.Div(
                                     style={
                                         "flex": "1",
-                                        "minWidth": "180px",
+                                        "minWidth": "140px",
                                         "backgroundColor": CARD_BG,
                                         "border": f"1px solid {CARD_BORDER}",
                                         "borderRadius": "6px",
@@ -445,7 +450,7 @@ app.layout = html.Div(
                                 html.Div(
                                     style={
                                         "flex": "1",
-                                        "minWidth": "180px",
+                                        "minWidth": "140px",
                                         "backgroundColor": CARD_BG,
                                         "border": f"1px solid {CARD_BORDER}",
                                         "borderRadius": "6px",
@@ -463,7 +468,7 @@ app.layout = html.Div(
                                 html.Div(
                                     style={
                                         "flex": "1",
-                                        "minWidth": "180px",
+                                        "minWidth": "140px",
                                         "backgroundColor": CARD_BG,
                                         "border": f"1px solid {CARD_BORDER}",
                                         "borderRadius": "6px",
@@ -474,7 +479,7 @@ app.layout = html.Div(
                                 html.Div(
                                     style={
                                         "flex": "1",
-                                        "minWidth": "180px",
+                                        "minWidth": "140px",
                                         "backgroundColor": CARD_BG,
                                         "border": f"1px solid {CARD_BORDER}",
                                         "borderRadius": "6px",
@@ -485,7 +490,7 @@ app.layout = html.Div(
                                 html.Div(
                                     style={
                                         "flex": "1",
-                                        "minWidth": "180px",
+                                        "minWidth": "140px",
                                         "backgroundColor": CARD_BG,
                                         "border": f"1px solid {CARD_BORDER}",
                                         "borderRadius": "6px",
