@@ -96,40 +96,74 @@ div[class*="Slider"] input {
     height: 4px !important;
 }
 
-/* --- Dropdown styling --- */
+/* --- Dropdown: Selected value (the closed state) --- */
 .Select-control,
-.Select-menu-outer,
-.Select-option,
-.dash-dropdown .Select-control {
+.dash-dropdown .Select-control,
+.dash-dropdown > div > div {
     background-color: #111820 !important;
-    color: #E2E8F0 !important;
-    border-color: #1E2A38 !important;
+    border-color: #2A3A4E !important;
 }
 
-.Select-option.is-focused,
-.Select-option:hover {
-    background-color: #1E2A38 !important;
-    color: #FFFFFF !important;
-}
-
+/* The selected text shown when dropdown is closed — bright white */
 .Select-value-label,
 .Select-placeholder,
-.Select--single > .Select-control .Select-value .Select-value-label {
-    color: #E2E8F0 !important;
-}
-
-.Select-arrow {
-    border-color: #5BA4B5 transparent transparent !important;
-}
-
-.dash-dropdown .VirtualizedSelectOption {
-    background-color: #111820 !important;
-    color: #E2E8F0 !important;
-}
-
-.dash-dropdown .VirtualizedSelectFocusedOption {
-    background-color: #1E2A38 !important;
+.Select--single > .Select-control .Select-value .Select-value-label,
+.dash-dropdown .Select-value-label,
+.dash-dropdown span[class*="singleValue"],
+.dash-dropdown div[class*="singleValue"],
+[class*="singleValue"] {
     color: #FFFFFF !important;
+    font-weight: 700 !important;
+}
+
+/* Arrow indicator */
+.Select-arrow {
+    border-color: #7EC8DB transparent transparent !important;
+}
+
+/* --- Dropdown: Open menu (the list of options) --- */
+.Select-menu-outer,
+.Select-menu,
+.dash-dropdown .Select-menu-outer,
+div[class*="menu"] {
+    background-color: #1A2332 !important;
+    border-color: #2A3A4E !important;
+}
+
+/* Individual option items — dark bg, readable text */
+.Select-option,
+.dash-dropdown .Select-option,
+.dash-dropdown .VirtualizedSelectOption,
+div[class*="option"] {
+    background-color: #1A2332 !important;
+    color: #CBD5E0 !important;
+}
+
+/* Hovered / focused option — slightly lighter bg, white text */
+.Select-option.is-focused,
+.Select-option:hover,
+.dash-dropdown .Select-option:hover,
+.dash-dropdown .VirtualizedSelectFocusedOption,
+div[class*="option"]:hover,
+div[class*="option"][class*="focused"] {
+    background-color: #263040 !important;
+    color: #FFFFFF !important;
+}
+
+/* Selected option in list (the one currently chosen) */
+.Select-option.is-selected,
+div[class*="option"][class*="selected"] {
+    background-color: #2A4A5E !important;
+    color: #FFFFFF !important;
+    font-weight: 700 !important;
+}
+
+/* Dropdown input when typing/searching */
+.Select-input > input,
+.dash-dropdown input {
+    color: #FFFFFF !important;
+    background-color: transparent !important;
+    border: none !important;
 }
 
 /* ==========================================================================
