@@ -1,216 +1,85 @@
 /* ==========================================================================
-   Parametric Design Dashboard — Responsive CSS
-   Auto-loaded by Dash from the assets/ directory.
+   Parametric Design Dashboard: Complete Dark Theme
+   Dash 4.0 --Dash-* CSS custom properties (official theming system)
    ========================================================================== */
 
-/* --- Base reset for responsiveness --- */
-* {
-    box-sizing: border-box;
-}
+:root {
+    /* Background fills */
+    --Dash-Fill-Inverse-Strong: #141D26;
+    --Dash-Fill-Weak: rgba(255, 255, 255, 0.06);
+    --Dash-Fill-Primary-Hover: rgba(255, 255, 255, 0.10);
+    --Dash-Fill-Primary-Active: rgba(255, 255, 255, 0.15);
+    --Dash-Fill-Disabled: rgba(255, 255, 255, 0.1);
 
-body {
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
-}
+    /* Interactive accent: teal instead of default purple */
+    --Dash-Fill-Interactive-Strong: #5BA4B5;
+    --Dash-Fill-Interactive-Weak: rgba(91, 164, 181, 0.15);
+    --Dash-Fill-Interactive-Hover: rgba(91, 164, 181, 0.25);
 
-/* Prevent Plotly graphs from overflowing containers */
-.js-plotly-plot, .plotly, .plot-container {
-    width: 100% !important;
-}
+    /* Borders */
+    --Dash-Stroke-Strong: rgba(255, 255, 255, 0.25);
+    --Dash-Stroke-Weak: rgba(255, 255, 255, 0.12);
+    --Dash-Stroke-Interactive: #5BA4B5;
 
-.js-plotly-plot .main-svg {
-    max-width: 100%;
-}
+    /* Text */
+    --Dash-Text-Primary: #E2E8F0;
+    --Dash-Text-Strong: #FFFFFF;
+    --Dash-Text-Weak: rgba(255, 255, 255, 0.4);
+    --Dash-Text-Disabled: rgba(255, 255, 255, 0.25);
+    --Dash-Text-Interactive-Strong: #7EC8DB;
 
-/* --- NUCLEAR OPTION: Force ALL inputs to white bg + black text --- */
-input,
-input[type="text"],
-input[type="number"],
-input[type="search"],
-select,
-textarea {
-    background-color: #FFFFFF !important;
-    color: #000000 !important;
-    font-weight: 700 !important;
-    font-family: 'JetBrains Mono', 'Courier New', monospace !important;
-    font-size: 12px !important;
-    border: 1px solid #555 !important;
-    border-radius: 3px !important;
-    color-scheme: light !important;
-    -webkit-appearance: none !important;
-}
+    /* Shadows / overlays */
+    --Dash-Shading-Strong: rgba(0, 0, 0, 0.6);
+    --Dash-Shading-Weak: rgba(0, 0, 0, 0.35);
 
-/* --- Dash slider tooltip --- */
-.rc-slider-tooltip-inner,
-[class*="tooltip"] {
-    background-color: #FFFFFF !important;
-    color: #000000 !important;
-    font-weight: 700 !important;
-    font-size: 12px !important;
-    border: 1px solid #444 !important;
-    padding: 2px 8px !important;
-}
-
-.rc-slider-tooltip-arrow {
-    border-top-color: #FFFFFF !important;
-}
-
-/* --- Dash slider container inputs --- */
-.dash-slider input,
-.rc-slider input,
-div[class*="slider"] input,
-div[class*="Slider"] input {
-    background-color: #FFFFFF !important;
-    color: #000000 !important;
-    font-weight: 700 !important;
-    border: 1px solid #555 !important;
-}
-
-/* --- Slider track --- */
-.rc-slider-track {
-    background-color: #3B82A0 !important;
-    height: 4px !important;
-}
-
-/* --- Slider handle --- */
-.rc-slider-handle {
-    border-color: #5BA4B5 !important;
-    background-color: #5BA4B5 !important;
-    width: 16px !important;
-    height: 16px !important;
-    margin-top: -6px !important;
-}
-
-.rc-slider-handle:hover,
-.rc-slider-handle:focus,
-.rc-slider-handle:active {
-    border-color: #7EC8DB !important;
-    background-color: #7EC8DB !important;
-    box-shadow: 0 0 4px rgba(91, 164, 181, 0.5) !important;
-}
-
-/* --- Slider rail --- */
-.rc-slider-rail {
-    background-color: #1E2A38 !important;
-    height: 4px !important;
-}
-
-/* --- Dropdown: Selected value (the closed state) --- */
-.Select-control,
-.dash-dropdown .Select-control,
-.dash-dropdown > div > div {
-    background-color: #111820 !important;
-    border-color: #2A3A4E !important;
-}
-
-/* The selected text shown when dropdown is closed — bright white */
-.Select-value-label,
-.Select-placeholder,
-.Select--single > .Select-control .Select-value .Select-value-label,
-.dash-dropdown .Select-value-label,
-.dash-dropdown span[class*="singleValue"],
-.dash-dropdown div[class*="singleValue"],
-[class*="singleValue"] {
-    color: #FFFFFF !important;
-    font-weight: 700 !important;
-}
-
-/* Arrow indicator */
-.Select-arrow {
-    border-color: #7EC8DB transparent transparent !important;
-}
-
-/* --- Dropdown: Open menu (the list of options) --- */
-.Select-menu-outer,
-.Select-menu,
-.dash-dropdown .Select-menu-outer,
-div[class*="menu"] {
-    background-color: #1A2332 !important;
-    border-color: #2A3A4E !important;
-}
-
-/* Individual option items — dark bg, readable text */
-.Select-option,
-.dash-dropdown .Select-option,
-.dash-dropdown .VirtualizedSelectOption,
-div[class*="option"] {
-    background-color: #1A2332 !important;
-    color: #CBD5E0 !important;
-}
-
-/* Hovered / focused option — slightly lighter bg, white text */
-.Select-option.is-focused,
-.Select-option:hover,
-.dash-dropdown .Select-option:hover,
-.dash-dropdown .VirtualizedSelectFocusedOption,
-div[class*="option"]:hover,
-div[class*="option"][class*="focused"] {
-    background-color: #263040 !important;
-    color: #FFFFFF !important;
-}
-
-/* Selected option in list (the one currently chosen) */
-.Select-option.is-selected,
-div[class*="option"][class*="selected"] {
-    background-color: #2A4A5E !important;
-    color: #FFFFFF !important;
-    font-weight: 700 !important;
-}
-
-/* Dropdown input when typing/searching */
-.Select-input > input,
-.dash-dropdown input {
-    color: #FFFFFF !important;
-    background-color: transparent !important;
-    border: none !important;
+    /* Radius */
+    --Dash-Radius-Small: 4px;
+    --Dash-Radius-Medium: 6px;
+    --Dash-Radius-Large: 8px;
 }
 
 /* ==========================================================================
-   RESPONSIVE BREAKPOINTS
+   Base
    ========================================================================== */
 
-/* --- Tablet and below (< 768px): stack everything vertically --- */
+* { box-sizing: border-box; }
+body {
+    margin: 0; padding: 0; overflow-x: hidden;
+    background-color: #0B0F14;
+    color: #E2E8F0;
+}
+
+/* ==========================================================================
+   Plotly Graphs
+   ========================================================================== */
+
+.js-plotly-plot, .plotly, .plot-container { width: 100% !important; }
+
+/* ==========================================================================
+   Slider supplements
+   ========================================================================== */
+
+.rc-slider-track { background-color: #3B82A0 !important; }
+.rc-slider-handle {
+    border-color: #5BA4B5 !important;
+    background-color: #5BA4B5 !important;
+    opacity: 1 !important;
+}
+.rc-slider-handle:hover {
+    border-color: #7EC8DB !important;
+    background-color: #7EC8DB !important;
+}
+.rc-slider-rail { background-color: #1E2A38 !important; }
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
 @media screen and (max-width: 768px) {
-    /* Make the main grid single-column */
-    #_dash-app-content > div > div {
-        padding: 8px !important;
-    }
-
-    /* Force gauge graphs to be smaller */
-    .dash-graph {
-        height: auto !important;
-    }
-
-    /* Make the header smaller */
-    h1 {
-        font-size: 14px !important;
-        letter-spacing: 2px !important;
-    }
-
-    /* Stack unit toggle */
-    .dash-dropdown {
-        width: 100% !important;
-    }
+    h1 { font-size: 14px !important; letter-spacing: 2px !important; }
+    .dash-dropdown-wrapper { width: 100% !important; min-width: 0 !important; }
 }
 
-/* --- Phone (< 480px): maximum compression --- */
-@media screen and (max-width: 480px) {
-    h1 {
-        font-size: 12px !important;
-        letter-spacing: 1px !important;
-    }
-
-    /* Reduce card padding */
-    .dash-graph {
-        padding: 2px !important;
-    }
-}
-
-/* --- Large screens (> 1400px): limit max width for readability --- */
 @media screen and (min-width: 1400px) {
-    #_dash-app-content > div {
-        max-width: 1400px;
-        margin: 0 auto;
-    }
+    #_dash-app-content > div { max-width: 1400px; margin: 0 auto; }
 }

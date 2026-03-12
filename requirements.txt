@@ -1,17 +1,9 @@
-# Parametric Design Dashboard - LTA Vehicle
-# Python 3.12
-
-# Core Dashboard — pinned to Dash 2.x (Dash 4.0 has breaking changes)
 dash>=2.18.0,<3.0.0
 plotly>=5.24.0,<6.0.0
-
-# Data Processing
+dash-bootstrap-components>=1.6.0
+dash-bootstrap-templates>=1.1.0,<2.0.0
 pandas>=2.2.0,<3.0.0
 numpy>=2.1.0,<3.0.0
 openpyxl>=3.1.0
-
-# 3D Mesh (future Phase 4)
 trimesh>=4.5.0
-
-# Production Server
 gunicorn>=23.0.0
