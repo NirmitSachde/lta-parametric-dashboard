@@ -39,14 +39,19 @@ from pages import sensitivity as sensitivity_page
 from visualization.sphere_animation import build_3d_scene
 
 # ═══════════════════════════════════════════════════════════════════════════
-# App Init — Custom dark theme via assets/style.css only
+# App Init — Bootstrap DARKLY for Render (Dash 2.18), --Dash-* vars for local (Dash 4.0)
 # ═══════════════════════════════════════════════════════════════════════════
+
+import dash_bootstrap_components as dbc
+
+dbc_css = "https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates@V1.0.2/dbc.min.css"
 
 app = dash.Dash(
     __name__,
     title="LTA Parametric Design Dashboard",
     update_title="Computing...",
     suppress_callback_exceptions=True,
+    external_stylesheets=[dbc.themes.DARKLY, dbc_css],
     meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1.0"}],
 )
 server = app.server
@@ -159,7 +164,7 @@ def make_slider_row(config):
                    step=config["si"]["step"], value=config["si"]["default"],
                    marks=None,
                    tooltip={"placement": "bottom", "always_visible": False},
-                   updatemode="drag"),
+                   updatemode="mouseup"),
     ])
 
 
@@ -247,7 +252,33 @@ def dashboard_layout():
 
                 # 3D ConOps Visualization (inside right column, below gauges)
                 html.Div(style={"marginTop": "12px"}, children=[
-                    section_header("3D ConOps Visualization"),
+                    html.Div(style={"display": "flex", "justifyContent": "space-between",
+                                     "alignItems": "center", "marginBottom": "8px"}, children=[
+                        section_header("3D ConOps Visualization"),
+                        html.Div(style={
+                            "display": "flex", "gap": "8px", "alignItems": "center",
+                            "--Dash-Fill-Inverse-Strong": "#141D26",
+                            "--Dash-Text-Primary": "#E2E8F0",
+                            "--Dash-Text-Strong": "#FFFFFF",
+                            "--Dash-Stroke-Strong": "rgba(255,255,255,0.25)",
+                            "--Dash-Fill-Interactive-Strong": "#5BA4B5",
+                            "--Dash-Fill-Weak": "rgba(255,255,255,0.06)",
+                            "--Dash-Fill-Primary-Hover": "rgba(255,255,255,0.10)",
+                            "--Dash-Shading-Strong": "rgba(0,0,0,0.6)",
+                        }, children=[
+                            html.Span("MESH:", style={"color": C_TEXT_DIM, "fontSize": "10px",
+                                       "fontFamily": FONT_FAMILY, "fontWeight": "600"}),
+                            dcc.Dropdown(
+                                id="mesh-quality-toggle",
+                                options=[
+                                    {"label": "Full Detail (slower)", "value": "full"},
+                                    {"label": "Performance (faster)", "value": "light"},
+                                ],
+                                value="full", clearable=False, searchable=False,
+                                style={"width": "180px", "fontSize": "11px"},
+                            ),
+                        ]),
+                    ]),
                     html.Div(style={
                         "backgroundColor": CARD_BG, "border": f"1px solid {CARD_BORDER}",
                         "borderRadius": "6px", "padding": "8px",
@@ -292,7 +323,7 @@ def make_nav_btn(label, page_id):
 app.layout = html.Div(style={
     "backgroundColor": PAGE_BG, "color": C_TEXT, "fontFamily": FONT_FAMILY,
     "minHeight": "100vh", "padding": "0",
-}, children=[
+}, className="dbc", children=[
     # Shared state store (for cross-page data like material selection)
     dcc.Store(id="shared-density-store", data=None),
     dcc.Store(id="current-page-store", data="dashboard"),
@@ -428,8 +459,9 @@ for cfg in SLIDER_CONFIGS:
     Input("slider-outer-radius", "value"), Input("slider-thickness", "value"),
     Input("slider-density", "value"), Input("slider-internal-pressure", "value"),
     Input("slider-atm-pressure", "value"), Input("unit-system-toggle", "value"),
+    Input("mesh-quality-toggle", "value"),
 )
-def update_dashboard(outer_radius, thickness, density, internal_pressure, atm_pressure, unit_system):
+def update_dashboard(outer_radius, thickness, density, internal_pressure, atm_pressure, unit_system, mesh_quality):
     us = unit_system or "SI"
     if us == "Imperial":
         outer_radius = convert_input_to_si(outer_radius, "length", "Imperial")
@@ -496,7 +528,8 @@ def update_dashboard(outer_radius, thickness, density, internal_pressure, atm_pr
         ]),
     ])
     # Build 3D ConOps visualization
-    fig_3d = build_3d_scene(result.buoyancy_state, result.net_force_N)
+    quality = mesh_quality or "full"
+    fig_3d = build_3d_scene(result.buoyancy_state, result.net_force_N, quality=quality)
 
     return gl, gw, gn, gb, gm, gs, panel, fig_3d
 

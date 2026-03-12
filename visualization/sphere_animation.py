@@ -48,25 +48,32 @@ Z_OFFSET_NEGATIVE = -15.0    # Descend (but maintain gap from plate)
 # Mesh loading
 # ---------------------------------------------------------------------------
 
-_mesh_cache = None
+_mesh_cache = {}
 
-def load_shell_mesh():
-    """Load the pre-processed VCA shell mesh from JSON."""
-    global _mesh_cache
-    if _mesh_cache is not None:
-        return _mesh_cache
+def load_shell_mesh(quality="full"):
+    """
+    Load the pre-processed VCA shell mesh from JSON.
+    quality: "full" (25K verts, best visuals) or "light" (16K verts, faster)
+    """
+    if quality in _mesh_cache:
+        return _mesh_cache[quality]
 
-    paths = [
-        os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "vca_shell_mesh.json"),
-        os.path.join("data", "vca_shell_mesh.json"),
-        "vca_shell_mesh.json",
-    ]
+    if quality == "light":
+        filenames = ["vca_shell_mesh_light.json", "vca_shell_mesh.json"]
+    else:
+        filenames = ["vca_shell_mesh.json", "vca_shell_mesh_light.json"]
+
+    paths = []
+    for fn in filenames:
+        paths.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", fn))
+        paths.append(os.path.join("data", fn))
+        paths.append(fn)
 
     for path in paths:
         if os.path.exists(path):
             with open(path, "r") as f:
-                _mesh_cache = json.load(f)
-            return _mesh_cache
+                _mesh_cache[quality] = json.load(f)
+            return _mesh_cache[quality]
 
     return None
 
@@ -134,7 +141,7 @@ def create_magnetic_ring(z_position, inner_r, outer_r, resolution=60):
 # Main figure builder
 # ---------------------------------------------------------------------------
 
-def build_3d_scene(buoyancy_state, net_force_N=0.0):
+def build_3d_scene(buoyancy_state, net_force_N=0.0, quality="full"):
     """
     Build the complete 3D ConOps visualization.
 
@@ -150,7 +157,7 @@ def build_3d_scene(buoyancy_state, net_force_N=0.0):
     go.Figure
         Plotly 3D figure with VCA shell STL, plate, and magnetic ring.
     """
-    mesh = load_shell_mesh()
+    mesh = load_shell_mesh(quality)
 
     # Determine Z offset based on buoyancy state
     if buoyancy_state == "Positive Buoyancy":
