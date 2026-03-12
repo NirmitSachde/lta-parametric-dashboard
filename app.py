@@ -241,13 +241,15 @@ def dashboard_layout():
             # RIGHT: Gauges + 3D stacked
             html.Div(style={"flex": "2 1 400px", "minWidth": "0"}, children=[
                 section_header("Instrument Panel"),
-                html.Div(style={"display": "flex", "gap": "10px", "marginBottom": "10px",
-                                 "flexWrap": "wrap"}, children=[
-                    gauge_card("gauge-lift"), gauge_card("gauge-weight"), gauge_card("gauge-net"),
-                ]),
-                html.Div(style={"display": "flex", "gap": "10px", "flexWrap": "wrap"}, children=[
-                    gauge_card("gauge-brs"), gauge_card("gauge-mass-available"),
-                    gauge_card("gauge-buoyancy-state"),
+                dcc.Loading(type="circle", color="#5BA4B5", children=[
+                    html.Div(style={"display": "flex", "gap": "10px", "marginBottom": "10px",
+                                     "flexWrap": "wrap"}, children=[
+                        gauge_card("gauge-lift"), gauge_card("gauge-weight"), gauge_card("gauge-net"),
+                    ]),
+                    html.Div(style={"display": "flex", "gap": "10px", "flexWrap": "wrap"}, children=[
+                        gauge_card("gauge-brs"), gauge_card("gauge-mass-available"),
+                        gauge_card("gauge-buoyancy-state"),
+                    ]),
                 ]),
 
                 # 3D ConOps Visualization (inside right column, below gauges)
@@ -274,20 +276,22 @@ def dashboard_layout():
                                     {"label": "Full Detail (slower)", "value": "full"},
                                     {"label": "Performance (faster)", "value": "light"},
                                 ],
-                                value="full", clearable=False, searchable=False,
+                                value="light", clearable=False, searchable=False,
                                 style={"width": "180px", "fontSize": "11px"},
                             ),
                         ]),
                     ]),
-                    html.Div(style={
-                        "backgroundColor": CARD_BG, "border": f"1px solid {CARD_BORDER}",
-                        "borderRadius": "6px", "padding": "8px",
-                    }, children=[
-                        dcc.Graph(id="conops-3d-view", config={
-                            "displayModeBar": True,
-                            "modeBarButtonsToRemove": ["toImage", "sendDataToCloud"],
-                            "displaylogo": False,
-                        }),
+                    dcc.Loading(type="dot", color="#5BA4B5", children=[
+                        html.Div(style={
+                            "backgroundColor": CARD_BG, "border": f"1px solid {CARD_BORDER}",
+                            "borderRadius": "6px", "padding": "8px",
+                        }, children=[
+                            dcc.Graph(id="conops-3d-view", config={
+                                "displayModeBar": True,
+                                "modeBarButtonsToRemove": ["toImage", "sendDataToCloud"],
+                                "displaylogo": False,
+                            }),
+                        ]),
                     ]),
                     html.P(
                         "VCA Body Shell with magnetic induction landing plate. "
@@ -349,8 +353,17 @@ app.layout = html.Div(style={
         ]),
     ]),
 
-    # Page content
-    html.Div(id="page-content", style={"padding": "16px"}),
+    # Page content with loading spinner
+    dcc.Loading(
+        id="page-loading",
+        type="dot",
+        color="#5BA4B5",
+        fullscreen=False,
+        style={"minHeight": "400px"},
+        children=[
+            html.Div(id="page-content", style={"padding": "16px"}),
+        ],
+    ),
 
     # Footer
     html.Div(style={
@@ -790,17 +803,40 @@ def update_sensitivity_page(current_page, variation_pct, mat_density):
     Output("shared-density-store", "data"),
     Output("page-content", "children", allow_duplicate=True),
     Output("current-page-store", "data", allow_duplicate=True),
+    Output({"type": "nav-btn", "page": ALL}, "style", allow_duplicate=True),
     Input({"type": "use-material-btn", "index": ALL}, "n_clicks"),
     prevent_initial_call=True,
 )
 def on_use_material(n_clicks_list):
     if not ctx.triggered_id or not any(n for n in n_clicks_list if n):
-        return dash.no_update, dash.no_update, dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update, [dash.no_update] * 3
     mat_name = ctx.triggered_id["index"]
     mat = MATERIAL_LOOKUP.get(mat_name)
     if mat:
-        return mat.density_kg_m3, dashboard_layout(), "dashboard"
-    return dash.no_update, dash.no_update, dash.no_update
+        # Build nav styles with dashboard highlighted
+        page_ids = ["dashboard", "materials", "sensitivity"]
+        styles = []
+        for pid in page_ids:
+            if pid == "dashboard":
+                styles.append({
+                    "backgroundColor": "#1A2535", "color": "#7EC8DB",
+                    "border": "none", "padding": "10px 18px", "cursor": "pointer",
+                    "fontSize": "12px", "fontFamily": FONT_FAMILY, "fontWeight": "700",
+                    "letterSpacing": "1.5px", "textTransform": "uppercase",
+                    "borderBottom": "2px solid #5BA4B5", "borderRadius": "4px 4px 0 0",
+                    "transition": "all 0.2s",
+                })
+            else:
+                styles.append({
+                    "backgroundColor": "transparent", "color": C_TEXT_DIM,
+                    "border": "none", "padding": "10px 18px", "cursor": "pointer",
+                    "fontSize": "12px", "fontFamily": FONT_FAMILY, "fontWeight": "600",
+                    "letterSpacing": "1.5px", "textTransform": "uppercase",
+                    "borderBottom": "2px solid transparent",
+                    "transition": "all 0.2s",
+                })
+        return mat.density_kg_m3, dashboard_layout(), "dashboard", styles
+    return dash.no_update, dash.no_update, dash.no_update, [dash.no_update] * 3
 
 
 # ═══════════════════════════════════════════════════════════════════════════
