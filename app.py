@@ -431,7 +431,7 @@ def navigate(n_clicks_list, current_page):
 for cfg in SLIDER_CONFIGS:
     @callback(Output(f"{cfg['id']}-value", "children"), Input(cfg['id'], "value"))
     def _sv(value, _fmt=cfg.get("fmt", ".2f")):
-        if value is None: return ""
+        if value is None: return dash.no_update
         return f"{value:{_fmt}}"
 
 # Slider unit labels
