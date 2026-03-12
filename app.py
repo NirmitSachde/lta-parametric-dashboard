@@ -154,7 +154,8 @@ def make_slider_row(config):
                 "borderRadius": "4px", "padding": "2px 10px", "minWidth": "90px",
                 "textAlign": "right",
             }, children=[
-                html.Span(id=f"{sid}-value", style={
+                html.Span(f"{config['si']['default']:{config.get('fmt', '.1f')}}",
+                           id=f"{sid}-value", style={
                     "color": "#FFFFFF", "fontSize": "14px",
                     "fontFamily": FONT_FAMILY, "fontWeight": "700",
                 }),
@@ -241,15 +242,13 @@ def dashboard_layout():
             # RIGHT: Gauges + 3D stacked
             html.Div(style={"flex": "2 1 400px", "minWidth": "0"}, children=[
                 section_header("Instrument Panel"),
-                dcc.Loading(type="circle", color="#5BA4B5", children=[
-                    html.Div(style={"display": "flex", "gap": "10px", "marginBottom": "10px",
-                                     "flexWrap": "wrap"}, children=[
-                        gauge_card("gauge-lift"), gauge_card("gauge-weight"), gauge_card("gauge-net"),
-                    ]),
-                    html.Div(style={"display": "flex", "gap": "10px", "flexWrap": "wrap"}, children=[
-                        gauge_card("gauge-brs"), gauge_card("gauge-mass-available"),
-                        gauge_card("gauge-buoyancy-state"),
-                    ]),
+                html.Div(style={"display": "flex", "gap": "10px", "marginBottom": "10px",
+                                 "flexWrap": "wrap"}, children=[
+                    gauge_card("gauge-lift"), gauge_card("gauge-weight"), gauge_card("gauge-net"),
+                ]),
+                html.Div(style={"display": "flex", "gap": "10px", "flexWrap": "wrap"}, children=[
+                    gauge_card("gauge-brs"), gauge_card("gauge-mass-available"),
+                    gauge_card("gauge-buoyancy-state"),
                 ]),
 
                 # 3D ConOps Visualization (inside right column, below gauges)
@@ -281,17 +280,15 @@ def dashboard_layout():
                             ),
                         ]),
                     ]),
-                    dcc.Loading(type="dot", color="#5BA4B5", children=[
-                        html.Div(style={
-                            "backgroundColor": CARD_BG, "border": f"1px solid {CARD_BORDER}",
-                            "borderRadius": "6px", "padding": "8px",
-                        }, children=[
-                            dcc.Graph(id="conops-3d-view", config={
-                                "displayModeBar": True,
-                                "modeBarButtonsToRemove": ["toImage", "sendDataToCloud"],
-                                "displaylogo": False,
-                            }),
-                        ]),
+                    html.Div(style={
+                        "backgroundColor": CARD_BG, "border": f"1px solid {CARD_BORDER}",
+                        "borderRadius": "6px", "padding": "8px",
+                    }, children=[
+                        dcc.Graph(id="conops-3d-view", config={
+                            "displayModeBar": True,
+                            "modeBarButtonsToRemove": ["toImage", "sendDataToCloud"],
+                            "displaylogo": False,
+                        }),
                     ]),
                     html.P(
                         "VCA Body Shell with magnetic induction landing plate. "
@@ -353,13 +350,13 @@ app.layout = html.Div(style={
         ]),
     ]),
 
-    # Page content with loading spinner
+    # Page content with single centered loading spinner
     dcc.Loading(
         id="page-loading",
-        type="dot",
+        type="default",
         color="#5BA4B5",
-        fullscreen=False,
-        style={"minHeight": "400px"},
+        fullscreen=True,
+        style={"backgroundColor": "rgba(11,15,20,0.8)"},
         children=[
             html.Div(id="page-content", style={"padding": "16px"}),
         ],

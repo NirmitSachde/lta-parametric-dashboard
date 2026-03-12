@@ -86,9 +86,7 @@ def layout():
                 "color": "#7EC8DB", "fontSize": "13px", "fontWeight": "700",
                 "letterSpacing": "2px", "marginBottom": "10px", "fontFamily": FONT_FAMILY,
             }),
-            dcc.Loading(type="dot", color="#5BA4B5", children=[
-                dcc.Graph(id="tornado-chart", config={"displayModeBar": False}),
-            ]),
+            dcc.Graph(id="tornado-chart", config={"displayModeBar": False}),
         ]),
 
         # Two-column: contour + boundary
@@ -102,9 +100,7 @@ def layout():
                     "color": "#7EC8DB", "fontSize": "13px", "fontWeight": "700",
                     "letterSpacing": "2px", "marginBottom": "10px", "fontFamily": FONT_FAMILY,
                 }),
-                dcc.Loading(type="dot", color="#5BA4B5", children=[
-                    dcc.Graph(id="tradeoff-contour", config={"displayModeBar": False}),
-                ]),
+                dcc.Graph(id="tradeoff-contour", config={"displayModeBar": False}),
             ]),
             html.Div(style={
                 "flex": "1 1 400px", "backgroundColor": CARD_BG,
@@ -115,9 +111,7 @@ def layout():
                     "color": "#7EC8DB", "fontSize": "13px", "fontWeight": "700",
                     "letterSpacing": "2px", "marginBottom": "10px", "fontFamily": FONT_FAMILY,
                 }),
-                dcc.Loading(type="dot", color="#5BA4B5", children=[
-                    dcc.Graph(id="feasibility-boundary", config={"displayModeBar": False}),
-                ]),
+                dcc.Graph(id="feasibility-boundary", config={"displayModeBar": False}),
             ]),
         ]),
     ])

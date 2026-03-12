@@ -138,20 +138,16 @@ def layout():
         ),
 
         # Materials table
-        dcc.Loading(type="circle", color="#5BA4B5", children=[
-            html.Div(
-                id="materials-table-container",
-                style={
-                    "backgroundColor": CARD_BG, "border": f"1px solid {CARD_BORDER}",
-                    "borderRadius": "6px", "padding": "0", "overflowX": "auto",
-                },
-            ),
-        ]),
+        html.Div(
+            id="materials-table-container",
+            style={
+                "backgroundColor": CARD_BG, "border": f"1px solid {CARD_BORDER}",
+                "borderRadius": "6px", "padding": "0", "overflowX": "auto",
+            },
+        ),
 
         # Chart area
         html.Div(style={"marginTop": "20px"}, children=[
-            dcc.Loading(type="dot", color="#5BA4B5", children=[
-                dcc.Graph(id="material-feasibility-chart", config={"displayModeBar": False}),
-            ]),
+            dcc.Graph(id="material-feasibility-chart", config={"displayModeBar": False}),
         ]),
     ])
