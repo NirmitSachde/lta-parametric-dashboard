@@ -350,17 +350,8 @@ app.layout = html.Div(style={
         ]),
     ]),
 
-    # Page content with single centered loading spinner
-    dcc.Loading(
-        id="page-loading",
-        type="default",
-        color="#5BA4B5",
-        fullscreen=True,
-        style={"backgroundColor": "rgba(11,15,20,0.8)"},
-        children=[
-            html.Div(id="page-content", style={"padding": "16px"}),
-        ],
-    ),
+    # Page content (no dcc.Loading wrapper - it causes visibility:hidden on slow connections)
+    html.Div(id="page-content", style={"padding": "16px"}),
 
     # Footer
     html.Div(style={
