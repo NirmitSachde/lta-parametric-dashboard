@@ -189,12 +189,23 @@ def readout_row(label, value, color="#FFFFFF"):
     ])
 
 
+def _empty_dark_fig(h=210):
+    """Dark empty figure to prevent white flash before callbacks fire."""
+    fig = go.Figure()
+    fig.update_layout(
+        paper_bgcolor=TRANSPARENT, plot_bgcolor=TRANSPARENT,
+        height=h, margin=dict(l=0, r=0, t=0, b=0),
+        xaxis=dict(visible=False), yaxis=dict(visible=False),
+    )
+    return fig
+
+
 def gauge_card(graph_id):
     return html.Div(style={
         "flex": "1 1 140px", "minWidth": "140px",
         "backgroundColor": CARD_BG, "border": f"1px solid {CARD_BORDER}",
         "borderRadius": "6px", "padding": "8px",
-    }, children=[dcc.Graph(id=graph_id, config={"displayModeBar": False})])
+    }, children=[dcc.Graph(id=graph_id, figure=_empty_dark_fig(), config={"displayModeBar": False})])
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -290,7 +301,7 @@ def dashboard_layout():
                         "backgroundColor": CARD_BG, "border": f"1px solid {CARD_BORDER}",
                         "borderRadius": "6px", "padding": "8px",
                     }, children=[
-                        dcc.Graph(id="conops-3d-view", config={
+                        dcc.Graph(id="conops-3d-view", figure=_empty_dark_fig(400), config={
                             "displayModeBar": True,
                             "modeBarButtonsToRemove": ["toImage", "sendDataToCloud"],
                             "displaylogo": False,
@@ -356,16 +367,27 @@ app.layout = html.Div(style={
         ]),
     ]),
 
-    # Page content with loading overlay (not fullscreen, no visibility:hidden)
-    dcc.Loading(
-        id="page-loading",
-        type="default",
-        color="#5BA4B5",
-        overlay_style={"visibility": "visible", "opacity": 0.6, "backgroundColor": "#0B0F14"},
-        children=[
-            html.Div(id="page-content", style={"padding": "16px"}),
-        ],
-    ),
+    # Custom loading overlay (viewport-centered, stays until graphs are ready)
+    html.Div(id="app-loader-overlay", style={
+        "position": "fixed", "top": "0", "left": "0", "width": "100vw", "height": "100vh",
+        "backgroundColor": "rgba(11,15,20,0.92)", "display": "flex",
+        "alignItems": "center", "justifyContent": "center", "flexDirection": "column",
+        "zIndex": "99998", "transition": "opacity 0.4s ease",
+    }, children=[
+        # Spinner
+        html.Div(style={
+            "width": "40px", "height": "40px", "border": "3px solid #1E2A38",
+            "borderTop": "3px solid #5BA4B5", "borderRadius": "50%",
+            "animation": "spin 0.8s linear infinite", "marginBottom": "16px",
+        }),
+        html.Span("Loading Dashboard...", style={
+            "color": "#5BA4B5", "fontSize": "13px", "fontFamily": FONT_FAMILY,
+            "letterSpacing": "2px", "fontWeight": "600",
+        }),
+    ]),
+
+    # Page content
+    html.Div(id="page-content", style={"padding": "16px"}),
 
     # Footer
     html.Div(style={
@@ -880,6 +902,29 @@ def apply_shared_density(density_si, unit_system):
         val, _ = convert_value(density_si, "density", "Imperial")
         return val
     return density_si
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Clientside callback: hide loader overlay when first gauge renders
+# ═══════════════════════════════════════════════════════════════════════════
+
+app.clientside_callback(
+    """
+    function(fig) {
+        var overlay = document.getElementById('app-loader-overlay');
+        if (overlay && fig && fig.data && fig.data.length > 0) {
+            overlay.style.opacity = '0';
+            setTimeout(function() {
+                overlay.style.display = 'none';
+            }, 400);
+        }
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output("app-loader-overlay", "style"),
+    Input("gauge-lift", "figure"),
+    prevent_initial_call=True,
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

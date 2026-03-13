@@ -50,10 +50,42 @@ body {
 }
 
 /* ==========================================================================
-   Plotly Graphs
+   Loading spinner animation
+   ========================================================================== */
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   Plotly: prevent white flash on empty graphs
    ========================================================================== */
 
 .js-plotly-plot, .plotly, .plot-container { width: 100% !important; }
+.js-plotly-plot .plotly .main-svg { background: transparent !important; }
+.js-plotly-plot .plotly .bg { fill: transparent !important; }
+
+/* ==========================================================================
+   Dash callback loading state: dim content slightly instead of hiding
+   ========================================================================== */
+
+._dash-loading { opacity: 0.5 !important; transition: opacity 0.2s; }
+
+/* ==========================================================================
+   Number input dark styling (for dcc.Input type=number)
+   ========================================================================== */
+
+input[type="number"] {
+    background-color: #0B0F14 !important;
+    color: #FFFFFF !important;
+    border: 1px solid #1E2A38 !important;
+    outline: none !important;
+}
+input[type="number"]:focus {
+    border-color: #5BA4B5 !important;
+    box-shadow: 0 0 0 1px rgba(91, 164, 181, 0.3) !important;
+}
 
 /* ==========================================================================
    Slider supplements
