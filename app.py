@@ -356,8 +356,16 @@ app.layout = html.Div(style={
         ]),
     ]),
 
-    # Page content (no dcc.Loading wrapper - it causes visibility:hidden on slow connections)
-    html.Div(id="page-content", style={"padding": "16px"}),
+    # Page content with loading overlay (not fullscreen, no visibility:hidden)
+    dcc.Loading(
+        id="page-loading",
+        type="default",
+        color="#5BA4B5",
+        overlay_style={"visibility": "visible", "opacity": 0.6, "backgroundColor": "#0B0F14"},
+        children=[
+            html.Div(id="page-content", style={"padding": "16px"}),
+        ],
+    ),
 
     # Footer
     html.Div(style={
