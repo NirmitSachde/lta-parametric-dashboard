@@ -149,17 +149,23 @@ def make_slider_row(config):
                     "padding": "1px 6px", "borderRadius": "3px", "border": "1px solid #263040",
                 }),
             ]),
-            html.Div(style={
-                "backgroundColor": "#0B0F14", "border": "1px solid #1E2A38",
-                "borderRadius": "4px", "padding": "2px 10px", "minWidth": "90px",
-                "textAlign": "right",
-            }, children=[
-                html.Span(f"{config['si']['default']:{config.get('fmt', '.1f')}}",
-                           id=f"{sid}-value", style={
-                    "color": "#FFFFFF", "fontSize": "14px",
+            # Editable input box for precise values
+            dcc.Input(
+                id=f"{sid}-input",
+                type="number",
+                value=config["si"]["default"],
+                min=config["si"]["min"],
+                max=config["si"]["max"],
+                step=config["si"]["step"],
+                debounce=True,
+                style={
+                    "backgroundColor": "#0B0F14", "border": "1px solid #1E2A38",
+                    "borderRadius": "4px", "padding": "4px 10px", "width": "120px",
+                    "textAlign": "right", "color": "#FFFFFF", "fontSize": "13px",
                     "fontFamily": FONT_FAMILY, "fontWeight": "700",
-                }),
-            ]),
+                    "outline": "none",
+                },
+            ),
         ]),
         dcc.Slider(id=sid, min=config["si"]["min"], max=config["si"]["max"],
                    step=config["si"]["step"], value=config["si"]["default"],
@@ -418,12 +424,29 @@ def navigate(n_clicks_list, current_page):
 # DASHBOARD CALLBACKS
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Slider value displays (formatted per parameter)
+# Bidirectional sync: slider <-> input box
 for cfg in SLIDER_CONFIGS:
-    @callback(Output(f"{cfg['id']}-value", "children"), Input(cfg['id'], "value"))
-    def _sv(value, _fmt=cfg.get("fmt", ".2f")):
-        if value is None: return dash.no_update
-        return f"{value:{_fmt}}"
+    @callback(
+        Output(cfg["id"], "value", allow_duplicate=True),
+        Input(f"{cfg['id']}-input", "value"),
+        prevent_initial_call=True,
+    )
+    def _input_to_slider(input_val, _cfg=cfg):
+        if input_val is None:
+            return dash.no_update
+        # Clamp to range
+        lo = _cfg["si"]["min"]
+        hi = _cfg["si"]["max"]
+        return max(lo, min(hi, input_val))
+
+    @callback(
+        Output(f"{cfg['id']}-input", "value"),
+        Input(cfg["id"], "value"),
+    )
+    def _slider_to_input(slider_val):
+        if slider_val is None:
+            return dash.no_update
+        return slider_val
 
 # Slider unit labels
 for cfg in SLIDER_CONFIGS:
@@ -431,11 +454,15 @@ for cfg in SLIDER_CONFIGS:
     def _su(us, si_u=cfg["si_unit"], imp_u=cfg["imp_unit"]):
         return imp_u if us == "Imperial" else si_u
 
-# Slider range conversion on unit toggle
+# Slider + input range conversion on unit toggle
 for cfg in SLIDER_CONFIGS:
     @callback(
         Output(cfg["id"], "value"), Output(cfg["id"], "min"),
         Output(cfg["id"], "max"), Output(cfg["id"], "step"),
+        Output(f"{cfg['id']}-input", "value", allow_duplicate=True),
+        Output(f"{cfg['id']}-input", "min"),
+        Output(f"{cfg['id']}-input", "max"),
+        Output(f"{cfg['id']}-input", "step"),
         Input("unit-system-toggle", "value"), Input(cfg["id"], "value"),
         prevent_initial_call=True,
     )
@@ -448,7 +475,7 @@ for cfg in SLIDER_CONFIGS:
             new_value = max(new_min, min(new_max, new_value))
         else:
             new_value = current_value
-        return new_value, new_min, new_max, new_step
+        return new_value, new_min, new_max, new_step, new_value, new_min, new_max, new_step
 
 # Master dashboard computation
 @callback(
