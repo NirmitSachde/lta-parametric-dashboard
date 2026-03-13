@@ -111,13 +111,26 @@ SLIDER_CONFIGS = [
 ]
 SLIDER_LOOKUP = {c["id"]: c for c in SLIDER_CONFIGS}
 
-# Maps each page id to the label shown in the loader overlay
+# Label shown in the spinner for each page
 PAGE_LOADER_LABELS = {
     "dashboard":   "Loading Dashboard...",
     "materials":   "Loading Materials...",
-    "sensitivity": "Loading Sensitivity...",
+    "sensitivity": "Loading Sensitivity Analysis...",
     "power":       "Loading Power Model...",
 }
+
+# Shared overlay style helpers
+_OVERLAY_SHOW = {
+    "position": "fixed", "top": "0", "left": "0",
+    "width": "100vw", "height": "100vh",
+    "backgroundColor": "rgba(11,15,20,0.92)",
+    "display": "flex", "alignItems": "center",
+    "justifyContent": "center", "flexDirection": "column",
+    "zIndex": "99998", "opacity": "1",
+    "transition": "opacity 0.4s ease",
+}
+_OVERLAY_HIDE = {**_OVERLAY_SHOW, "opacity": "0", "display": "none"}
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Reusable Components
@@ -363,7 +376,6 @@ app.layout = html.Div(style={
             "fontSize": "10px", "color": C_TEXT_DIM, "margin": "0 0 10px 0",
             "letterSpacing": "1.5px",
         }),
-        # ── Navigation tabs ────────────────────────────────────────────────
         html.Div(style={"display": "flex", "gap": "4px", "flexWrap": "wrap"}, children=[
             make_nav_btn("Dashboard",   "dashboard"),
             make_nav_btn("Materials",   "materials"),
@@ -372,19 +384,13 @@ app.layout = html.Div(style={
         ]),
     ]),
 
-    # Loading overlay
-    html.Div(id="app-loader-overlay", style={
-        "position": "fixed", "top": "0", "left": "0", "width": "100vw", "height": "100vh",
-        "backgroundColor": "rgba(11,15,20,0.92)", "display": "flex",
-        "alignItems": "center", "justifyContent": "center", "flexDirection": "column",
-        "zIndex": "99998", "transition": "opacity 0.4s ease",
-    }, children=[
+    # Loading overlay — controlled exclusively by the clientside callback below
+    html.Div(id="app-loader-overlay", style=_OVERLAY_SHOW, children=[
         html.Div(style={
             "width": "40px", "height": "40px", "border": "3px solid #1E2A38",
             "borderTop": "3px solid #5BA4B5", "borderRadius": "50%",
             "animation": "spin 0.8s linear infinite", "marginBottom": "16px",
         }),
-        # ── Dynamic label updated server-side before the overlay is shown ──
         html.Span(id="loader-label", children="Loading Dashboard...", style={
             "color": "#5BA4B5", "fontSize": "13px", "fontFamily": FONT_FAMILY,
             "letterSpacing": "2px", "fontWeight": "600",
@@ -405,6 +411,8 @@ app.layout = html.Div(style={
 
 # ═══════════════════════════════════════════════════════════════════════════
 # NAVIGATION CALLBACK
+# — renders the new page + updates nav styles + sets the loader label text.
+# — does NOT touch overlay style (that is owned solely by the clientside cb).
 # ═══════════════════════════════════════════════════════════════════════════
 
 PAGE_IDS = ["dashboard", "materials", "sensitivity", "power"]
@@ -436,9 +444,7 @@ def _nav_styles(active_page):
     Output("page-content", "children"),
     Output("current-page-store", "data"),
     Output({"type": "nav-btn", "page": ALL}, "style"),
-    # ── NEW: update label and re-show the overlay on every navigation ──────
     Output("loader-label", "children"),
-    Output("app-loader-overlay", "style"),
     Input({"type": "nav-btn", "page": ALL}, "n_clicks"),
     State("current-page-store", "data"),
     prevent_initial_call=False,
@@ -450,26 +456,16 @@ def navigate(n_clicks_list, current_page):
     else:
         page = current_page or "dashboard"
 
-    styles = _nav_styles(page)
-    label  = PAGE_LOADER_LABELS.get(page, "Loading...")
-
-    # Show the overlay whenever we navigate (clientside hides it once ready)
-    overlay_visible = {
-        "position": "fixed", "top": "0", "left": "0", "width": "100vw", "height": "100vh",
-        "backgroundColor": "rgba(11,15,20,0.92)", "display": "flex",
-        "alignItems": "center", "justifyContent": "center", "flexDirection": "column",
-        "zIndex": "99998", "transition": "opacity 0.4s ease",
-        "opacity": "1",
-    }
+    label = PAGE_LOADER_LABELS.get(page, "Loading...")
 
     if page == "materials":
-        return materials_page.layout(), page, styles, label, overlay_visible
+        return materials_page.layout(), page, _nav_styles(page), label
     elif page == "sensitivity":
-        return sensitivity_page.layout(), page, styles, label, overlay_visible
+        return sensitivity_page.layout(), page, _nav_styles(page), label
     elif page == "power":
-        return power_layout, page, styles, label, overlay_visible
+        return power_layout, page, _nav_styles(page), label
     else:
-        return dashboard_layout(), page, styles, label, overlay_visible
+        return dashboard_layout(), page, _nav_styles(page), label
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -541,11 +537,11 @@ def update_dashboard(outer_radius, thickness, density, internal_pressure, atm_pr
                      unit_system, mesh_quality):
     us = unit_system or "SI"
     if us == "Imperial":
-        outer_radius     = convert_input_to_si(outer_radius,     "length",   "Imperial")
-        thickness        = convert_input_to_si(thickness,        "length",   "Imperial")
-        density          = convert_input_to_si(density,          "density",  "Imperial")
+        outer_radius      = convert_input_to_si(outer_radius,      "length",   "Imperial")
+        thickness         = convert_input_to_si(thickness,         "length",   "Imperial")
+        density           = convert_input_to_si(density,           "density",  "Imperial")
         internal_pressure = convert_input_to_si(internal_pressure, "pressure", "Imperial")
-        atm_pressure     = convert_input_to_si(atm_pressure,     "pressure", "Imperial")
+        atm_pressure      = convert_input_to_si(atm_pressure,      "pressure", "Imperial")
     if internal_pressure >= atm_pressure:
         internal_pressure = atm_pressure - 100.0
     if thickness >= outer_radius:
@@ -559,10 +555,10 @@ def update_dashboard(outer_radius, thickness, density, internal_pressure, atm_pr
         err = html.Div(f"Error: {e}", style={"color": C_RED, "fontSize": "11px"})
         return empty, empty, empty, empty, empty, empty, err, empty
 
-    lift_val, fu  = convert_value(result.lift_force_N,        "force", us)
-    weight_val, _ = convert_value(result.weight_force_N,      "force", us)
-    net_val, _    = convert_value(result.net_force_N,         "force", us)
-    mass_val, mu  = convert_value(result.mass_available_kg,   "mass",  us)
+    lift_val, fu  = convert_value(result.lift_force_N,      "force", us)
+    weight_val, _ = convert_value(result.weight_force_N,    "force", us)
+    net_val, _    = convert_value(result.net_force_N,       "force", us)
+    mass_val, mu  = convert_value(result.mass_available_kg, "mass",  us)
 
     force_max = max(abs(lift_val), abs(weight_val), 10.0) * 1.5
     brs_max   = max(result.balanced_rotational_speed_rpm, 500.0) * 1.5
@@ -578,24 +574,24 @@ def update_dashboard(outer_radius, thickness, density, internal_pressure, atm_pr
         fig.data[0].number.suffix = suf
 
     sc = STATE_COLORS.get(result.buoyancy_state, C_TEXT)
-    ri,  lu  = convert_value(result.geometry.inner_radius_m,         "length", us)
-    ra,  au  = convert_value(result.geometry.surface_area_m2,        "area",   us)
-    rv,  vu  = convert_value(result.geometry.interior_void_volume_m3, "volume", us)
-    rsv, _   = convert_value(result.geometry.shell_volume_m3,         "volume", us)
-    rm,  mmu = convert_value(result.sphere_mass_kg,                   "mass",   us)
-    rd,  _   = convert_value(result.displaced_air_mass_kg,            "mass",   us)
-    rav, _   = convert_value(result.mass_available_kg,                "mass",   us)
+    ri,  lu  = convert_value(result.geometry.inner_radius_m,          "length", us)
+    ra,  au  = convert_value(result.geometry.surface_area_m2,         "area",   us)
+    rv,  vu  = convert_value(result.geometry.interior_void_volume_m3,  "volume", us)
+    rsv, _   = convert_value(result.geometry.shell_volume_m3,          "volume", us)
+    rm,  mmu = convert_value(result.sphere_mass_kg,                    "mass",   us)
+    rd,  _   = convert_value(result.displaced_air_mass_kg,             "mass",   us)
+    rav, _   = convert_value(result.mass_available_kg,                 "mass",   us)
 
     panel = html.Div([
-        readout_row("Inner Radius",        f"{ri:.4f} {lu}"),
-        readout_row("Surface Area",        f"{ra:.2f} {au}"),
-        readout_row("Interior Volume",     f"{rv:.2f} {vu}"),
-        readout_row("Shell Volume",        f"{rsv:.6f} {vu}"),
-        readout_row("Sphere Mass",         f"{rm:.3f} {mmu}"),
-        readout_row("Displaced Air Mass",  f"{rd:.3f} {mmu}"),
-        readout_row("Mass Available",      f"{rav:.3f} {mmu}", color=sc),
-        readout_row("BRS (rad/s)",         f"{result.balanced_rotational_speed_rad_s:.2f}"),
-        readout_row("BRS (RPM)",           f"{result.balanced_rotational_speed_rpm:.0f}"),
+        readout_row("Inner Radius",       f"{ri:.4f} {lu}"),
+        readout_row("Surface Area",       f"{ra:.2f} {au}"),
+        readout_row("Interior Volume",    f"{rv:.2f} {vu}"),
+        readout_row("Shell Volume",       f"{rsv:.6f} {vu}"),
+        readout_row("Sphere Mass",        f"{rm:.3f} {mmu}"),
+        readout_row("Displaced Air Mass", f"{rd:.3f} {mmu}"),
+        readout_row("Mass Available",     f"{rav:.3f} {mmu}", color=sc),
+        readout_row("BRS (rad/s)",        f"{result.balanced_rotational_speed_rad_s:.2f}"),
+        readout_row("BRS (RPM)",          f"{result.balanced_rotational_speed_rpm:.0f}"),
         html.Div(style={"display": "flex", "justifyContent": "space-between",
                          "padding": "8px 0 2px 0"}, children=[
             html.Span("BUOYANCY", style={"color": "#A0AEC0", "fontSize": "11px",
@@ -649,7 +645,7 @@ def update_materials_page(category, chart_type):
     })
 
     fig   = go.Figure()
-    names = [e["material"].name for e in evals]
+    names  = [e["material"].name for e in evals]
     masses = [e["mass_available_kg"] for e in evals]
 
     if chart_type == "bubble":
@@ -864,50 +860,51 @@ def apply_shared_density(density_si, unit_system):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Clientside: hide loader once the key graph for each page has real data.
+# Clientside: show loader on nav click, hide it once page-content has
+# fully re-rendered.
 #
-# Strategy: one unified clientside callback watches ALL four "ready" signals
-# simultaneously.  Whichever one just became non-empty triggers the hide.
-#   • Dashboard  → gauge-lift (Indicator figure)
-#   • Materials  → material-feasibility-chart (Bar/Bubble/Radar figure)
-#   • Sensitivity→ tornado-chart (Bar figure)
-#   • Power      → page-content children change while current-page == "power"
-#                  (power page has no top-level Plotly graph in app.py scope,
-#                   so we watch the children length instead via a short trick)
+# How it works:
+#   1. When a nav button is clicked the `navigate` server callback fires and
+#      sets page-content.children to the new page layout.
+#   2. The clientside callback below watches page-content.children.
+#      Every time it changes it means a navigation just completed, so we:
+#        a. First show the overlay immediately (before the new DOM paints).
+#        b. Then use requestAnimationFrame + a short setTimeout so the
+#           browser has time to actually render the new children, after
+#           which we fade the overlay out.
+#   3. The overlay is never touched by any server-side callback, so there
+#      is no Output conflict.
 # ═══════════════════════════════════════════════════════════════════════════
 
 app.clientside_callback(
     """
-    function(gaugeFig, matFig, tornadoFig, pageChildren, currentPage) {
+    function(pageChildren) {
         var overlay = document.getElementById('app-loader-overlay');
         if (!overlay) return window.dash_clientside.no_update;
 
-        function hasFigData(fig) {
-            return fig && fig.data && fig.data.length > 0;
-        }
+        // Show the overlay immediately
+        overlay.style.display = 'flex';
+        overlay.style.opacity = '1';
 
-        var ready = false;
+        // After two animation frames + a short wait, hide it.
+        // This guarantees Plotly / React has had time to paint the new page.
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+                setTimeout(function() {
+                    overlay.style.opacity = '0';
+                    setTimeout(function() {
+                        overlay.style.display = 'none';
+                    }, 400);
+                }, 300);
+            });
+        });
 
-        if (currentPage === 'dashboard' && hasFigData(gaugeFig))    ready = true;
-        if (currentPage === 'materials' && hasFigData(matFig))       ready = true;
-        if (currentPage === 'sensitivity' && hasFigData(tornadoFig)) ready = true;
-        // Power page: no Plotly figure — hide as soon as page-content children arrive
-        if (currentPage === 'power' && pageChildren)                  ready = true;
-
-        if (ready) {
-            overlay.style.opacity = '0';
-            setTimeout(function() { overlay.style.display = 'none'; }, 400);
-        }
         return window.dash_clientside.no_update;
     }
     """,
-    Output("app-loader-overlay", "style", allow_duplicate=True),
-    Input("gauge-lift",                "figure"),   # dashboard
-    Input("material-feasibility-chart","figure"),   # materials
-    Input("tornado-chart",             "figure"),   # sensitivity
-    Input("page-content",              "children"), # power (and others as fallback)
-    State("current-page-store",        "data"),
-    prevent_initial_call=True,
+    Output("app-loader-overlay", "style"),
+    Input("page-content", "children"),
+    prevent_initial_call=False,
 )
 
 
