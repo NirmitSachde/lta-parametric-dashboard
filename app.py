@@ -4,9 +4,10 @@ Parametric Design Dashboard - Multi-Page Application
 LTA Vehicle with Rotational Spherical Lifting Structure
 
 Pages:
-    1. Dashboard - Interactive gauges and sliders
-    2. Materials - Aerospace material comparison
+    1. Dashboard   - Interactive gauges and sliders
+    2. Materials   - Aerospace material comparison
     3. Sensitivity - Tornado chart, trade-off contours
+    4. Power Model - Onboard power consumption model
 
 Author: Nirmit Sachde, Northeastern University
 Mentor: David W. Clark, P.E.
@@ -36,10 +37,12 @@ from visualization.gauges import (
 )
 from pages import materials as materials_page
 from pages import sensitivity as sensitivity_page
+from pages.power_page import layout as power_layout
+from pages.power_page import register_callbacks as register_power_callbacks
 from visualization.sphere_animation import build_3d_scene
 
 # ═══════════════════════════════════════════════════════════════════════════
-# App Init — Bootstrap DARKLY for Render (Dash 2.18), --Dash-* vars for local (Dash 4.0)
+# App Init
 # ═══════════════════════════════════════════════════════════════════════════
 
 import dash_bootstrap_components as dbc
@@ -54,6 +57,8 @@ app = dash.Dash(
     external_stylesheets=[dbc.themes.DARKLY, dbc_css],
     meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1.0"}],
 )
+register_power_callbacks(app)
+
 server = app.server
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -149,7 +154,6 @@ def make_slider_row(config):
                     "padding": "1px 6px", "borderRadius": "3px", "border": "1px solid #263040",
                 }),
             ]),
-            # Editable input box for precise values
             dcc.Input(
                 id=f"{sid}-input",
                 type="number",
@@ -162,8 +166,7 @@ def make_slider_row(config):
                     "backgroundColor": "#0B0F14", "border": "1px solid #1E2A38",
                     "borderRadius": "4px", "padding": "4px 10px", "width": "120px",
                     "textAlign": "right", "color": "#FFFFFF", "fontSize": "13px",
-                    "fontFamily": FONT_FAMILY, "fontWeight": "700",
-                    "outline": "none",
+                    "fontFamily": FONT_FAMILY, "fontWeight": "700", "outline": "none",
                 },
             ),
         ]),
@@ -190,7 +193,6 @@ def readout_row(label, value, color="#FFFFFF"):
 
 
 def _empty_dark_fig(h=210):
-    """Dark empty figure to prevent white flash before callbacks fire."""
     fig = go.Figure()
     fig.update_layout(
         paper_bgcolor=TRANSPARENT, plot_bgcolor=TRANSPARENT,
@@ -214,7 +216,6 @@ def gauge_card(graph_id):
 
 def dashboard_layout():
     return html.Div([
-        # Unit toggle
         html.Div(style={
             "display": "flex", "justifyContent": "flex-end", "alignItems": "center",
             "gap": "10px", "marginBottom": "14px", "flexWrap": "wrap",
@@ -243,7 +244,6 @@ def dashboard_layout():
             ]),
         ]),
 
-        # Main grid: Left = Sliders + Computed, Right = Gauges + 3D
         html.Div(style={"display": "flex", "gap": "16px", "flexWrap": "wrap"}, children=[
             # LEFT: Sliders + Computed
             html.Div(style={"flex": "1 1 320px", "minWidth": "0"}, children=[
@@ -256,7 +256,7 @@ def dashboard_layout():
                     "borderRadius": "6px", "padding": "12px 14px",
                 }),
             ]),
-            # RIGHT: Gauges + 3D stacked
+            # RIGHT: Gauges + 3D
             html.Div(style={"flex": "2 1 400px", "minWidth": "0"}, children=[
                 section_header("Instrument Panel"),
                 html.Div(style={"display": "flex", "gap": "10px", "marginBottom": "10px",
@@ -267,8 +267,6 @@ def dashboard_layout():
                     gauge_card("gauge-brs"), gauge_card("gauge-mass-available"),
                     gauge_card("gauge-buoyancy-state"),
                 ]),
-
-                # 3D ConOps Visualization (inside right column, below gauges)
                 html.Div(style={"marginTop": "12px"}, children=[
                     html.Div(style={"display": "flex", "justifyContent": "space-between",
                                      "alignItems": "center", "marginBottom": "8px"}, children=[
@@ -321,7 +319,7 @@ def dashboard_layout():
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Navbar
+# Navbar helper
 # ═══════════════════════════════════════════════════════════════════════════
 
 def make_nav_btn(label, page_id):
@@ -342,7 +340,6 @@ app.layout = html.Div(style={
     "backgroundColor": PAGE_BG, "color": C_TEXT, "fontFamily": FONT_FAMILY,
     "minHeight": "100vh", "padding": "0",
 }, className="dbc", children=[
-    # Shared state store (for cross-page data like material selection)
     dcc.Store(id="shared-density-store", data=None),
     dcc.Store(id="current-page-store", data="dashboard"),
 
@@ -359,22 +356,22 @@ app.layout = html.Div(style={
             "fontSize": "10px", "color": C_TEXT_DIM, "margin": "0 0 10px 0",
             "letterSpacing": "1.5px",
         }),
-        # Navigation tabs
+        # ── Navigation tabs ────────────────────────────────────────────────
         html.Div(style={"display": "flex", "gap": "4px", "flexWrap": "wrap"}, children=[
-            make_nav_btn("Dashboard", "dashboard"),
-            make_nav_btn("Materials", "materials"),
+            make_nav_btn("Dashboard",   "dashboard"),
+            make_nav_btn("Materials",   "materials"),
             make_nav_btn("Sensitivity", "sensitivity"),
+            make_nav_btn("Power Model", "power"),        # NEW
         ]),
     ]),
 
-    # Custom loading overlay (viewport-centered, stays until graphs are ready)
+    # Loading overlay
     html.Div(id="app-loader-overlay", style={
         "position": "fixed", "top": "0", "left": "0", "width": "100vw", "height": "100vh",
         "backgroundColor": "rgba(11,15,20,0.92)", "display": "flex",
         "alignItems": "center", "justifyContent": "center", "flexDirection": "column",
         "zIndex": "99998", "transition": "opacity 0.4s ease",
     }, children=[
-        # Spinner
         html.Div(style={
             "width": "40px", "height": "40px", "border": "3px solid #1E2A38",
             "borderTop": "3px solid #5BA4B5", "borderRadius": "50%",
@@ -386,10 +383,8 @@ app.layout = html.Div(style={
         }),
     ]),
 
-    # Page content
     html.Div(id="page-content", style={"padding": "16px"}),
 
-    # Footer
     html.Div(style={
         "textAlign": "center", "padding": "12px 0", "marginTop": "16px",
         "borderTop": f"1px solid {SECTION_BORDER}", "color": "#4A5568",
@@ -401,8 +396,33 @@ app.layout = html.Div(style={
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# NAVIGATION CALLBACK
+# NAVIGATION CALLBACK  (now handles 4 pages)
 # ═══════════════════════════════════════════════════════════════════════════
+
+PAGE_IDS = ["dashboard", "materials", "sensitivity", "power"]
+
+def _nav_styles(active_page):
+    styles = []
+    for pid in PAGE_IDS:
+        if pid == active_page:
+            styles.append({
+                "backgroundColor": "#1A2535", "color": "#7EC8DB",
+                "border": "none", "padding": "10px 18px", "cursor": "pointer",
+                "fontSize": "12px", "fontFamily": FONT_FAMILY, "fontWeight": "700",
+                "letterSpacing": "1.5px", "textTransform": "uppercase",
+                "borderBottom": "2px solid #5BA4B5", "borderRadius": "4px 4px 0 0",
+                "transition": "all 0.2s",
+            })
+        else:
+            styles.append({
+                "backgroundColor": "transparent", "color": C_TEXT_DIM,
+                "border": "none", "padding": "10px 18px", "cursor": "pointer",
+                "fontSize": "12px", "fontFamily": FONT_FAMILY, "fontWeight": "600",
+                "letterSpacing": "1.5px", "textTransform": "uppercase",
+                "borderBottom": "2px solid transparent", "transition": "all 0.2s",
+            })
+    return styles
+
 
 @callback(
     Output("page-content", "children"),
@@ -419,33 +439,14 @@ def navigate(n_clicks_list, current_page):
     else:
         page = current_page or "dashboard"
 
-    # Build styles: active page gets highlighted, others stay dim
-    page_ids = ["dashboard", "materials", "sensitivity"]
-    styles = []
-    for pid in page_ids:
-        if pid == page:
-            styles.append({
-                "backgroundColor": "#1A2535", "color": "#7EC8DB",
-                "border": "none", "padding": "10px 18px", "cursor": "pointer",
-                "fontSize": "12px", "fontFamily": FONT_FAMILY, "fontWeight": "700",
-                "letterSpacing": "1.5px", "textTransform": "uppercase",
-                "borderBottom": "2px solid #5BA4B5", "borderRadius": "4px 4px 0 0",
-                "transition": "all 0.2s",
-            })
-        else:
-            styles.append({
-                "backgroundColor": "transparent", "color": C_TEXT_DIM,
-                "border": "none", "padding": "10px 18px", "cursor": "pointer",
-                "fontSize": "12px", "fontFamily": FONT_FAMILY, "fontWeight": "600",
-                "letterSpacing": "1.5px", "textTransform": "uppercase",
-                "borderBottom": "2px solid transparent",
-                "transition": "all 0.2s",
-            })
+    styles = _nav_styles(page)
 
     if page == "materials":
         return materials_page.layout(), page, styles
     elif page == "sensitivity":
         return sensitivity_page.layout(), page, styles
+    elif page == "power":
+        return power_layout, page, styles
     else:
         return dashboard_layout(), page, styles
 
@@ -454,7 +455,6 @@ def navigate(n_clicks_list, current_page):
 # DASHBOARD CALLBACKS
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Bidirectional sync: slider <-> input box
 for cfg in SLIDER_CONFIGS:
     @callback(
         Output(cfg["id"], "value", allow_duplicate=True),
@@ -464,7 +464,6 @@ for cfg in SLIDER_CONFIGS:
     def _input_to_slider(input_val, _cfg=cfg):
         if input_val is None:
             return dash.no_update
-        # Clamp to range
         lo = _cfg["si"]["min"]
         hi = _cfg["si"]["max"]
         return max(lo, min(hi, input_val))
@@ -478,13 +477,11 @@ for cfg in SLIDER_CONFIGS:
             return dash.no_update
         return slider_val
 
-# Slider unit labels
 for cfg in SLIDER_CONFIGS:
     @callback(Output(f"{cfg['id']}-unit", "children"), Input("unit-system-toggle", "value"))
     def _su(us, si_u=cfg["si_unit"], imp_u=cfg["imp_unit"]):
         return imp_u if us == "Imperial" else si_u
 
-# Slider + input range conversion on unit toggle
 for cfg in SLIDER_CONFIGS:
     @callback(
         Output(cfg["id"], "value"), Output(cfg["id"], "min"),
@@ -507,7 +504,7 @@ for cfg in SLIDER_CONFIGS:
             new_value = current_value
         return new_value, new_min, new_max, new_step, new_value, new_min, new_max, new_step
 
-# Master dashboard computation
+
 @callback(
     Output("gauge-lift", "figure"), Output("gauge-weight", "figure"),
     Output("gauge-net", "figure"), Output("gauge-brs", "figure"),
@@ -519,16 +516,19 @@ for cfg in SLIDER_CONFIGS:
     Input("slider-atm-pressure", "value"), Input("unit-system-toggle", "value"),
     Input("mesh-quality-toggle", "value"),
 )
-def update_dashboard(outer_radius, thickness, density, internal_pressure, atm_pressure, unit_system, mesh_quality):
+def update_dashboard(outer_radius, thickness, density, internal_pressure, atm_pressure,
+                     unit_system, mesh_quality):
     us = unit_system or "SI"
     if us == "Imperial":
-        outer_radius = convert_input_to_si(outer_radius, "length", "Imperial")
-        thickness = convert_input_to_si(thickness, "length", "Imperial")
-        density = convert_input_to_si(density, "density", "Imperial")
+        outer_radius     = convert_input_to_si(outer_radius,     "length",   "Imperial")
+        thickness        = convert_input_to_si(thickness,        "length",   "Imperial")
+        density          = convert_input_to_si(density,          "density",  "Imperial")
         internal_pressure = convert_input_to_si(internal_pressure, "pressure", "Imperial")
-        atm_pressure = convert_input_to_si(atm_pressure, "pressure", "Imperial")
-    if internal_pressure >= atm_pressure: internal_pressure = atm_pressure - 100.0
-    if thickness >= outer_radius: thickness = outer_radius * 0.01
+        atm_pressure     = convert_input_to_si(atm_pressure,     "pressure", "Imperial")
+    if internal_pressure >= atm_pressure:
+        internal_pressure = atm_pressure - 100.0
+    if thickness >= outer_radius:
+        thickness = outer_radius * 0.01
 
     try:
         result = compute_buoyancy(outer_radius, thickness, density, internal_pressure, atm_pressure)
@@ -538,15 +538,14 @@ def update_dashboard(outer_radius, thickness, density, internal_pressure, atm_pr
         err = html.Div(f"Error: {e}", style={"color": C_RED, "fontSize": "11px"})
         return empty, empty, empty, empty, empty, empty, err, empty
 
-    # Convert for display
-    lift_val, fu = convert_value(result.lift_force_N, "force", us)
-    weight_val, _ = convert_value(result.weight_force_N, "force", us)
-    net_val, _ = convert_value(result.net_force_N, "force", us)
-    mass_val, mu = convert_value(result.mass_available_kg, "mass", us)
+    lift_val, fu  = convert_value(result.lift_force_N,        "force", us)
+    weight_val, _ = convert_value(result.weight_force_N,      "force", us)
+    net_val, _    = convert_value(result.net_force_N,         "force", us)
+    mass_val, mu  = convert_value(result.mass_available_kg,   "mass",  us)
 
     force_max = max(abs(lift_val), abs(weight_val), 10.0) * 1.5
-    brs_max = max(result.balanced_rotational_speed_rpm, 500.0) * 1.5
-    mass_max = max(abs(mass_val), 10.0) * 1.5
+    brs_max   = max(result.balanced_rotational_speed_rpm, 500.0) * 1.5
+    mass_max  = max(abs(mass_val), 10.0) * 1.5
 
     gl = build_lift_force_gauge(lift_val, force_max)
     gw = build_weight_force_gauge(weight_val, force_max)
@@ -558,24 +557,24 @@ def update_dashboard(outer_radius, thickness, density, internal_pressure, atm_pr
         fig.data[0].number.suffix = suf
 
     sc = STATE_COLORS.get(result.buoyancy_state, C_TEXT)
-    ri, lu = convert_value(result.geometry.inner_radius_m, "length", us)
-    ra, au = convert_value(result.geometry.surface_area_m2, "area", us)
-    rv, vu = convert_value(result.geometry.interior_void_volume_m3, "volume", us)
-    rsv, _ = convert_value(result.geometry.shell_volume_m3, "volume", us)
-    rm, mmu = convert_value(result.sphere_mass_kg, "mass", us)
-    rd, _ = convert_value(result.displaced_air_mass_kg, "mass", us)
-    rav, _ = convert_value(result.mass_available_kg, "mass", us)
+    ri,  lu  = convert_value(result.geometry.inner_radius_m,         "length", us)
+    ra,  au  = convert_value(result.geometry.surface_area_m2,        "area",   us)
+    rv,  vu  = convert_value(result.geometry.interior_void_volume_m3, "volume", us)
+    rsv, _   = convert_value(result.geometry.shell_volume_m3,         "volume", us)
+    rm,  mmu = convert_value(result.sphere_mass_kg,                   "mass",   us)
+    rd,  _   = convert_value(result.displaced_air_mass_kg,            "mass",   us)
+    rav, _   = convert_value(result.mass_available_kg,                "mass",   us)
 
     panel = html.Div([
-        readout_row("Inner Radius", f"{ri:.4f} {lu}"),
-        readout_row("Surface Area", f"{ra:.2f} {au}"),
-        readout_row("Interior Volume", f"{rv:.2f} {vu}"),
-        readout_row("Shell Volume", f"{rsv:.6f} {vu}"),
-        readout_row("Sphere Mass", f"{rm:.3f} {mmu}"),
-        readout_row("Displaced Air Mass", f"{rd:.3f} {mmu}"),
-        readout_row("Mass Available", f"{rav:.3f} {mmu}", color=sc),
-        readout_row("BRS (rad/s)", f"{result.balanced_rotational_speed_rad_s:.2f}"),
-        readout_row("BRS (RPM)", f"{result.balanced_rotational_speed_rpm:.0f}"),
+        readout_row("Inner Radius",        f"{ri:.4f} {lu}"),
+        readout_row("Surface Area",        f"{ra:.2f} {au}"),
+        readout_row("Interior Volume",     f"{rv:.2f} {vu}"),
+        readout_row("Shell Volume",        f"{rsv:.6f} {vu}"),
+        readout_row("Sphere Mass",         f"{rm:.3f} {mmu}"),
+        readout_row("Displaced Air Mass",  f"{rd:.3f} {mmu}"),
+        readout_row("Mass Available",      f"{rav:.3f} {mmu}", color=sc),
+        readout_row("BRS (rad/s)",         f"{result.balanced_rotational_speed_rad_s:.2f}"),
+        readout_row("BRS (RPM)",           f"{result.balanced_rotational_speed_rpm:.0f}"),
         html.Div(style={"display": "flex", "justifyContent": "space-between",
                          "padding": "8px 0 2px 0"}, children=[
             html.Span("BUOYANCY", style={"color": "#A0AEC0", "fontSize": "11px",
@@ -585,10 +584,9 @@ def update_dashboard(outer_radius, thickness, density, internal_pressure, atm_pr
                 "fontFamily": FONT_FAMILY, "letterSpacing": "1px"}),
         ]),
     ])
-    # Build 3D ConOps visualization
-    quality = mesh_quality or "full"
-    fig_3d = build_3d_scene(result.buoyancy_state, result.net_force_N, quality=quality)
 
+    fig_3d = build_3d_scene(result.buoyancy_state, result.net_force_N,
+                             quality=mesh_quality or "full")
     return gl, gw, gn, gb, gm, gs, panel, fig_3d
 
 
@@ -596,12 +594,12 @@ def update_dashboard(outer_radius, thickness, density, internal_pressure, atm_pr
 # MATERIALS PAGE CALLBACKS
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Muted chart colors for dark background
-CH_TEAL = "#3D8B8B"
-CH_CORAL = "#8B5A5A"
-CH_SAND = "#8B7D5A"
-CH_BLUE = "#4A7A9B"
+CH_TEAL   = "#3D8B8B"
+CH_CORAL  = "#8B5A5A"
+CH_SAND   = "#8B7D5A"
+CH_BLUE   = "#4A7A9B"
 CH_PURPLE = "#7A6A9B"
+
 
 @callback(
     Output("materials-table-container", "children"),
@@ -611,11 +609,9 @@ CH_PURPLE = "#7A6A9B"
 )
 def update_materials_page(category, chart_type):
     r, t, p_int, p_atm = 5.1, 0.0005, 5066.25, 101325.0
-
-    mats = MATERIALS if category == "all" else [m for m in MATERIALS if m.category == category]
+    mats  = MATERIALS if category == "all" else [m for m in MATERIALS if m.category == category]
     evals = [evaluate_material(m, r, t, p_int, p_atm) for m in mats]
 
-    # Build table
     header = html.Thead(html.Tr([
         html.Th(h, style={"padding": "10px 6px", "color": "#7EC8DB", "fontSize": "10px",
                  "fontWeight": "700", "textTransform": "uppercase", "letterSpacing": "0.5px",
@@ -626,87 +622,67 @@ def update_materials_page(category, chart_type):
                       ("Stress MPa", "right"), ("Safety", "right"),
                       ("Status", "center"), ("", "center")]
     ]))
-
-    rows = [materials_page.make_material_row(e["material"], e) for e in evals]
+    rows  = [materials_page.make_material_row(e["material"], e) for e in evals]
     table = html.Table([header, html.Tbody(rows)], style={
         "width": "100%", "borderCollapse": "collapse", "fontFamily": FONT_FAMILY,
     })
 
-    # Build selected chart
-    fig = go.Figure()
+    fig   = go.Figure()
     names = [e["material"].name for e in evals]
     masses = [e["mass_available_kg"] for e in evals]
 
     if chart_type == "bubble":
-        # Density vs Available Mass bubble chart (size = safety factor)
-        densities = [e["material"].density_kg_m3 for e in evals]
+        densities      = [e["material"].density_kg_m3 for e in evals]
         safety_factors = [min(e["safety_factor"], 50) for e in evals]
-        feasible = [e["feasible_overall"] for e in evals]
-        colors = [CH_TEAL if f else CH_CORAL for f in feasible]
-
+        feasible       = [e["feasible_overall"] for e in evals]
+        colors         = [CH_TEAL if f else CH_CORAL for f in feasible]
         fig.add_trace(go.Scatter(
             x=densities, y=masses, mode="markers+text",
-            marker=dict(
-                size=[max(s * 2, 8) for s in safety_factors],
-                color=colors, opacity=0.7,
-                line=dict(width=1, color="rgba(255,255,255,0.2)"),
-            ),
+            marker=dict(size=[max(s * 2, 8) for s in safety_factors], color=colors,
+                        opacity=0.7, line=dict(width=1, color="rgba(255,255,255,0.2)")),
             text=names, textposition="top center",
             textfont=dict(size=8, color=C_TEXT_DIM),
-            hovertemplate="<b>%{text}</b><br>Density: %{x:.0f} kg/m³<br>"
+            hovertemplate="<b>%{text}</b><br>Density: %{x:.0f} kg/m\u00b3<br>"
                           "Available Mass: %{y:.1f} kg<extra></extra>",
         ))
         fig.add_hline(y=0, line_dash="dot", line_color=CH_SAND, line_width=1,
                       annotation_text="Buoyancy threshold",
                       annotation_font=dict(size=9, color=CH_SAND))
         fig.update_layout(
-            xaxis=dict(title="Material Density (kg/m³)", gridcolor="#1A2535"),
+            xaxis=dict(title="Material Density (kg/m\u00b3)", gridcolor="#1A2535"),
             yaxis=dict(title="Available Mass (kg)", gridcolor="#1A2535"),
             height=420,
         )
 
     elif chart_type == "radar":
-        # Radar chart comparing top feasible materials
-        feasible_evals = [e for e in evals if e["feasible_overall"]]
-        if len(feasible_evals) == 0:
-            feasible_evals = evals[:5]  # fallback
-
-        radar_colors = [CH_TEAL, CH_BLUE, CH_PURPLE, CH_SAND, "#6B8B8B", "#8B6B8B"]
-        categories = ["Available Mass", "Safety Factor", "Low Density", "Low BRS", "Low Stress"]
-
+        feasible_evals = [e for e in evals if e["feasible_overall"]] or evals[:5]
+        radar_colors   = [CH_TEAL, CH_BLUE, CH_PURPLE, CH_SAND, "#6B8B8B", "#8B6B8B"]
+        categories     = ["Available Mass", "Safety Factor", "Low Density", "Low BRS", "Low Stress"]
         for idx, e in enumerate(feasible_evals[:6]):
-            # Normalize each dimension to 0-100 scale
-            mass_norm = max(0, min(100, (e["mass_available_kg"] / 500) * 100))
-            sf_norm = max(0, min(100, (min(e["safety_factor"], 20) / 20) * 100))
+            mass_norm    = max(0, min(100, (e["mass_available_kg"] / 500) * 100))
+            sf_norm      = max(0, min(100, (min(e["safety_factor"], 20) / 20) * 100))
             density_norm = max(0, min(100, (1 - e["material"].density_kg_m3 / 8000) * 100))
-            brs_norm = max(0, min(100, (1 - min(e["brs_rpm"], 5000) / 5000) * 100))
-            stress_norm = max(0, min(100, (1 - min(e["total_stress_MPa"], 500) / 500) * 100))
-
-            vals = [mass_norm, sf_norm, density_norm, brs_norm, stress_norm]
-            vals.append(vals[0])  # close the polygon
+            brs_norm     = max(0, min(100, (1 - min(e["brs_rpm"], 5000) / 5000) * 100))
+            stress_norm  = max(0, min(100, (1 - min(e["total_stress_MPa"], 500) / 500) * 100))
+            vals = [mass_norm, sf_norm, density_norm, brs_norm, stress_norm, mass_norm]
             cats = categories + [categories[0]]
-
             fig.add_trace(go.Scatterpolar(
                 r=vals, theta=cats, fill="toself",
                 fillcolor=f"rgba{tuple(list(int(radar_colors[idx][i:i+2], 16) for i in (1,3,5)) + [0.1])}",
                 line=dict(color=radar_colors[idx], width=2),
                 name=e["material"].name,
             ))
-
         fig.update_layout(
             polar=dict(
                 bgcolor="#0B0F14",
                 radialaxis=dict(visible=True, range=[0, 100], gridcolor="#1A2535",
                                 tickfont=dict(size=8, color=C_TEXT_DIM)),
-                angularaxis=dict(gridcolor="#1A2535",
-                                 tickfont=dict(size=10, color=C_TEXT)),
+                angularaxis=dict(gridcolor="#1A2535", tickfont=dict(size=10, color=C_TEXT)),
             ),
-            height=450,
-            legend=dict(font=dict(size=10, color=C_TEXT_DIM)),
+            height=450, legend=dict(font=dict(size=10, color=C_TEXT_DIM)),
         )
 
     else:
-        # Default: Available mass bar chart with muted colors
         colors = [CH_TEAL if m > 0 else CH_CORAL for m in masses]
         fig.add_trace(go.Bar(
             x=names, y=masses, marker_color=colors,
@@ -721,14 +697,12 @@ def update_materials_page(category, chart_type):
             height=400,
         )
 
-    # Common layout for all chart types
     fig.update_layout(
         paper_bgcolor=TRANSPARENT, plot_bgcolor=TRANSPARENT,
         font={"color": C_TEXT, "family": FONT_FAMILY, "size": 11},
         margin=dict(l=60, r=20, t=20, b=100),
         showlegend=(chart_type == "radar"),
     )
-
     return table, fig
 
 
@@ -752,20 +726,17 @@ def update_sensitivity_page(current_page, variation_pct, mat_density):
 
     var_pct = variation_pct or 20
     density = mat_density or 1100.0
-
     base = {
         "outer_radius_m": 5.1, "thickness_m": 0.0005,
         "material_density_kg_m3": density, "internal_pressure_Pa": 5066.25,
         "atmospheric_pressure_Pa": 101325.0,
     }
 
-    # --- Tornado (muted colors) ---
     tornado_data, base_mass = compute_tornado(base, variation_pct=var_pct)
     fig_tornado = go.Figure()
-    params = [d["parameter"] for d in tornado_data]
-    deltas_low = [d["delta_low"] for d in tornado_data]
+    params      = [d["parameter"]  for d in tornado_data]
+    deltas_low  = [d["delta_low"]  for d in tornado_data]
     deltas_high = [d["delta_high"] for d in tornado_data]
-
     fig_tornado.add_trace(go.Bar(
         y=params, x=deltas_low, orientation="h", name=f"-{var_pct}%",
         marker_color=CH_CORAL, text=[f"{d:.1f}" for d in deltas_low],
@@ -786,13 +757,12 @@ def update_sensitivity_page(current_page, variation_pct, mat_density):
         legend={"font": {"size": 10}, "orientation": "h", "y": -0.15},
     )
 
-    # --- Trade-off contour (muted colorscale) ---
     radii, thicknesses, mass_grid = compute_tradeoff_grid(
         density, 5066.25, 101325.0, r_steps=50, t_steps=50)
-
     fig_contour = go.Figure(go.Contour(
         x=radii, y=thicknesses * 1000, z=mass_grid,
-        colorscale=[[0, CH_CORAL], [0.35, CH_SAND], [0.5, "#3A4A5A"], [0.75, CH_BLUE], [1, CH_TEAL]],
+        colorscale=[[0, CH_CORAL], [0.35, CH_SAND], [0.5, "#3A4A5A"],
+                    [0.75, CH_BLUE], [1, CH_TEAL]],
         contours_showlabels=True,
         contours=dict(labelfont=dict(size=9, color=C_TEXT)),
         colorbar=dict(title=dict(text="Mass (kg)", font=dict(size=10, color=C_TEXT_DIM)),
@@ -806,22 +776,17 @@ def update_sensitivity_page(current_page, variation_pct, mat_density):
         margin=dict(l=60, r=20, t=20, b=50), height=400,
     )
 
-    # --- Feasibility boundary (muted) ---
     radii_b, max_t = compute_feasibility_boundary(density, 5066.25, 101325.0)
     fig_boundary = go.Figure()
     fig_boundary.add_trace(go.Scatter(
         x=radii_b, y=max_t * 1000, mode="lines", fill="tozeroy",
         line={"color": CH_TEAL, "width": 2},
-        fillcolor=CH_TEAL.replace(")", ",0.1)").replace("rgb", "rgba") if "rgb" in CH_TEAL
-               else "rgba(61,139,139,0.12)",
-        name="Feasible Region",
+        fillcolor="rgba(61,139,139,0.12)", name="Feasible Region",
     ))
     fig_boundary.add_trace(go.Scatter(
         x=radii_b, y=max_t * 1000 * 1.5, mode="lines",
         line={"color": CH_CORAL, "width": 1, "dash": "dot"},
-        fill="tonexty",
-        fillcolor="rgba(139,90,90,0.08)",
-        name="Infeasible Region",
+        fill="tonexty", fillcolor="rgba(139,90,90,0.08)", name="Infeasible Region",
     ))
     fig_boundary.update_layout(
         paper_bgcolor=TRANSPARENT, plot_bgcolor=TRANSPARENT,
@@ -832,16 +797,15 @@ def update_sensitivity_page(current_page, variation_pct, mat_density):
         showlegend=True, legend={"font": {"size": 10}},
     )
     fig_boundary.add_annotation(
-        x=10, y=max_t[len(max_t)//2]*1000*0.4,
+        x=10, y=max_t[len(max_t) // 2] * 1000 * 0.4,
         text="POSITIVE<br>BUOYANCY", showarrow=False,
         font={"size": 12, "color": CH_TEAL}, opacity=0.5,
     )
-
     return fig_tornado, fig_contour, fig_boundary
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# MATERIAL "USE" BUTTON -> Store density + navigate to dashboard
+# MATERIAL "USE" BUTTON -> navigate back to dashboard
 # ═══════════════════════════════════════════════════════════════════════════
 
 @callback(
@@ -854,39 +818,13 @@ def update_sensitivity_page(current_page, variation_pct, mat_density):
 )
 def on_use_material(n_clicks_list):
     if not ctx.triggered_id or not any(n for n in n_clicks_list if n):
-        return dash.no_update, dash.no_update, dash.no_update, [dash.no_update] * 3
+        return dash.no_update, dash.no_update, dash.no_update, [dash.no_update] * len(PAGE_IDS)
     mat_name = ctx.triggered_id["index"]
     mat = MATERIAL_LOOKUP.get(mat_name)
     if mat:
-        # Build nav styles with dashboard highlighted
-        page_ids = ["dashboard", "materials", "sensitivity"]
-        styles = []
-        for pid in page_ids:
-            if pid == "dashboard":
-                styles.append({
-                    "backgroundColor": "#1A2535", "color": "#7EC8DB",
-                    "border": "none", "padding": "10px 18px", "cursor": "pointer",
-                    "fontSize": "12px", "fontFamily": FONT_FAMILY, "fontWeight": "700",
-                    "letterSpacing": "1.5px", "textTransform": "uppercase",
-                    "borderBottom": "2px solid #5BA4B5", "borderRadius": "4px 4px 0 0",
-                    "transition": "all 0.2s",
-                })
-            else:
-                styles.append({
-                    "backgroundColor": "transparent", "color": C_TEXT_DIM,
-                    "border": "none", "padding": "10px 18px", "cursor": "pointer",
-                    "fontSize": "12px", "fontFamily": FONT_FAMILY, "fontWeight": "600",
-                    "letterSpacing": "1.5px", "textTransform": "uppercase",
-                    "borderBottom": "2px solid transparent",
-                    "transition": "all 0.2s",
-                })
-        return mat.density_kg_m3, dashboard_layout(), "dashboard", styles
-    return dash.no_update, dash.no_update, dash.no_update, [dash.no_update] * 3
+        return mat.density_kg_m3, dashboard_layout(), "dashboard", _nav_styles("dashboard")
+    return dash.no_update, dash.no_update, dash.no_update, [dash.no_update] * len(PAGE_IDS)
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-# When dashboard loads, check if shared-density-store has a value and apply it
-# ═══════════════════════════════════════════════════════════════════════════
 
 @callback(
     Output("slider-density", "value", allow_duplicate=True),
@@ -905,7 +843,7 @@ def apply_shared_density(density_si, unit_system):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Clientside callback: hide loader overlay when first gauge renders
+# Clientside: hide loader when first gauge renders
 # ═══════════════════════════════════════════════════════════════════════════
 
 app.clientside_callback(
@@ -914,9 +852,7 @@ app.clientside_callback(
         var overlay = document.getElementById('app-loader-overlay');
         if (overlay && fig && fig.data && fig.data.length > 0) {
             overlay.style.opacity = '0';
-            setTimeout(function() {
-                overlay.style.display = 'none';
-            }, 400);
+            setTimeout(function() { overlay.style.display = 'none'; }, 400);
         }
         return window.dash_clientside.no_update;
     }
@@ -932,6 +868,6 @@ app.clientside_callback(
 # ═══════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8050))
+    port  = int(os.environ.get("PORT", 8050))
     debug = os.environ.get("RENDER") is None
     app.run(debug=debug, host="0.0.0.0", port=port)
