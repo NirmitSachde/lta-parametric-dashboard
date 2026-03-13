@@ -111,6 +111,13 @@ SLIDER_CONFIGS = [
 ]
 SLIDER_LOOKUP = {c["id"]: c for c in SLIDER_CONFIGS}
 
+# Maps each page id to the label shown in the loader overlay
+PAGE_LOADER_LABELS = {
+    "dashboard":   "Loading Dashboard...",
+    "materials":   "Loading Materials...",
+    "sensitivity": "Loading Sensitivity...",
+    "power":       "Loading Power Model...",
+}
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Reusable Components
@@ -361,7 +368,7 @@ app.layout = html.Div(style={
             make_nav_btn("Dashboard",   "dashboard"),
             make_nav_btn("Materials",   "materials"),
             make_nav_btn("Sensitivity", "sensitivity"),
-            make_nav_btn("Power Model", "power"),        # NEW
+            make_nav_btn("Power Model", "power"),
         ]),
     ]),
 
@@ -377,7 +384,8 @@ app.layout = html.Div(style={
             "borderTop": "3px solid #5BA4B5", "borderRadius": "50%",
             "animation": "spin 0.8s linear infinite", "marginBottom": "16px",
         }),
-        html.Span("Loading Dashboard...", style={
+        # ── Dynamic label updated server-side before the overlay is shown ──
+        html.Span(id="loader-label", children="Loading Dashboard...", style={
             "color": "#5BA4B5", "fontSize": "13px", "fontFamily": FONT_FAMILY,
             "letterSpacing": "2px", "fontWeight": "600",
         }),
@@ -396,7 +404,7 @@ app.layout = html.Div(style={
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# NAVIGATION CALLBACK  (now handles 4 pages)
+# NAVIGATION CALLBACK
 # ═══════════════════════════════════════════════════════════════════════════
 
 PAGE_IDS = ["dashboard", "materials", "sensitivity", "power"]
@@ -428,6 +436,9 @@ def _nav_styles(active_page):
     Output("page-content", "children"),
     Output("current-page-store", "data"),
     Output({"type": "nav-btn", "page": ALL}, "style"),
+    # ── NEW: update label and re-show the overlay on every navigation ──────
+    Output("loader-label", "children"),
+    Output("app-loader-overlay", "style"),
     Input({"type": "nav-btn", "page": ALL}, "n_clicks"),
     State("current-page-store", "data"),
     prevent_initial_call=False,
@@ -440,15 +451,25 @@ def navigate(n_clicks_list, current_page):
         page = current_page or "dashboard"
 
     styles = _nav_styles(page)
+    label  = PAGE_LOADER_LABELS.get(page, "Loading...")
+
+    # Show the overlay whenever we navigate (clientside hides it once ready)
+    overlay_visible = {
+        "position": "fixed", "top": "0", "left": "0", "width": "100vw", "height": "100vh",
+        "backgroundColor": "rgba(11,15,20,0.92)", "display": "flex",
+        "alignItems": "center", "justifyContent": "center", "flexDirection": "column",
+        "zIndex": "99998", "transition": "opacity 0.4s ease",
+        "opacity": "1",
+    }
 
     if page == "materials":
-        return materials_page.layout(), page, styles
+        return materials_page.layout(), page, styles, label, overlay_visible
     elif page == "sensitivity":
-        return sensitivity_page.layout(), page, styles
+        return sensitivity_page.layout(), page, styles, label, overlay_visible
     elif page == "power":
-        return power_layout, page, styles
+        return power_layout, page, styles, label, overlay_visible
     else:
-        return dashboard_layout(), page, styles
+        return dashboard_layout(), page, styles, label, overlay_visible
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -843,22 +864,49 @@ def apply_shared_density(density_si, unit_system):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Clientside: hide loader when first gauge renders
+# Clientside: hide loader once the key graph for each page has real data.
+#
+# Strategy: one unified clientside callback watches ALL four "ready" signals
+# simultaneously.  Whichever one just became non-empty triggers the hide.
+#   • Dashboard  → gauge-lift (Indicator figure)
+#   • Materials  → material-feasibility-chart (Bar/Bubble/Radar figure)
+#   • Sensitivity→ tornado-chart (Bar figure)
+#   • Power      → page-content children change while current-page == "power"
+#                  (power page has no top-level Plotly graph in app.py scope,
+#                   so we watch the children length instead via a short trick)
 # ═══════════════════════════════════════════════════════════════════════════
 
 app.clientside_callback(
     """
-    function(fig) {
+    function(gaugeFig, matFig, tornadoFig, pageChildren, currentPage) {
         var overlay = document.getElementById('app-loader-overlay');
-        if (overlay && fig && fig.data && fig.data.length > 0) {
+        if (!overlay) return window.dash_clientside.no_update;
+
+        function hasFigData(fig) {
+            return fig && fig.data && fig.data.length > 0;
+        }
+
+        var ready = false;
+
+        if (currentPage === 'dashboard' && hasFigData(gaugeFig))    ready = true;
+        if (currentPage === 'materials' && hasFigData(matFig))       ready = true;
+        if (currentPage === 'sensitivity' && hasFigData(tornadoFig)) ready = true;
+        // Power page: no Plotly figure — hide as soon as page-content children arrive
+        if (currentPage === 'power' && pageChildren)                  ready = true;
+
+        if (ready) {
             overlay.style.opacity = '0';
             setTimeout(function() { overlay.style.display = 'none'; }, 400);
         }
         return window.dash_clientside.no_update;
     }
     """,
-    Output("app-loader-overlay", "style"),
-    Input("gauge-lift", "figure"),
+    Output("app-loader-overlay", "style", allow_duplicate=True),
+    Input("gauge-lift",                "figure"),   # dashboard
+    Input("material-feasibility-chart","figure"),   # materials
+    Input("tornado-chart",             "figure"),   # sensitivity
+    Input("page-content",              "children"), # power (and others as fallback)
+    State("current-page-store",        "data"),
     prevent_initial_call=True,
 )
 
