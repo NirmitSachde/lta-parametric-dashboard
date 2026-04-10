@@ -794,6 +794,6 @@ app.clientside_callback(
 # ── Run ───────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    port  = int(os.environ.get("PORT", 8050))
+    port = int(os.environ.get("PORT", 7860))
     debug = os.environ.get("RENDER") is None
     app.run(debug=debug, host="0.0.0.0", port=port)

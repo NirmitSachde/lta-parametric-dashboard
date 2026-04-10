@@ -1,25 +1,74 @@
-# Python
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
-*$py.class
+*.pyo
+*.pyd
+.Python
+*.egg
 *.egg-info/
 dist/
 build/
-*.egg
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
 
-# Virtual Environment
-.env/
-venv/
+# ── Virtual environments ───────────────────────────────────────────────────────
+.env
+.venv
 env/
+venv/
+ENV/
 
-# IDE
+# ── Large binary / raw CAD files (not needed at runtime) ──────────────────────
+data/VCA Body Shell v1.stl
+data/*.stl
+data/*.step
+data/*.stp
+data/*.iges
+data/*.igs
+*.stl
+*.step
+
+# ── Full-detail mesh (heavy, only needed locally for regeneration) ─────────────
+# Comment this line out if you want Full Detail mode on Render
+data/vca_shell_mesh.json
+
+# ── Excel source file (values are hardcoded in engine, not read at runtime) ───
+data/*.xlsx
+data/*.xls
+
+# ── Jupyter / exploration ──────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+trialsite/
+
+# ── macOS ──────────────────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# ── Docs / local-only ─────────────────────────────────────────────────────────
+docs/
+*.pdf
+
+# ── HF Space artifacts ────────────────────────────────────────────────────────
+hf_space/
+Dockerfile
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Data (keep Excel reference in repo, ignore temp data)
-*.tmp
+# ── Logs ──────────────────────────────────────────────────────────────────────
 *.log
+logs/
