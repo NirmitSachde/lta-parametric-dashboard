@@ -1,221 +1,224 @@
 """
-visualization/sphere_animation.py
-==================================
-Optimized 3D ConOps scene for the LTA dashboard.
+VCA Body Shell 3D Visualization
+================================
+Renders the VCA body shell STL with magnetic induction landing plate.
+Animation: vertical Z-axis movement based on buoyancy state.
 
-Key optimizations for Render free tier:
-  1. Lazy loading: mesh JSON is read from disk only on first callback, not at import
-  2. Module-level cache: mesh loaded once, reused for all subsequent callbacks
-  3. Graceful fallback: if mesh file missing, renders a clean parametric sphere
-  4. Light mesh is default: vca_shell_mesh_light.json (463 KB) used unless full requested
-  5. Full mesh excluded from Render deploy via .gitignore (too large for free tier RAM)
+Landing system per David Clark's specifications:
+    - Magnetic induction landing plate (no physical contact)
+    - Design gap: 0.40m between bottom of shell and top of plate
+    - Plate diameter: 130% of body shell diameter
+    - ConOps visualization: hover, ascend, descend
+
+Optimization: mesh loaded lazily on first callback and cached in memory.
+Uses vca_shell_mesh_light.json by default (Render-safe), falls back to
+vca_shell_mesh.json if light not found, falls back to parametric sphere
+if neither exists.
 """
 
 import json
-import math
 import os
 import numpy as np
 import plotly.graph_objects as go
+from visualization.gauges import (
+    C_TEXT, C_TEXT_DIM, C_GREEN, C_AMBER, C_RED, C_CYAN, FONT_FAMILY, TRANSPARENT,
+)
 
-# ── Color constants (match project palette) ───────────────────────────────────
-C_TEXT      = "#E2E8F0"
-C_TEXT_DIM  = "#718096"
-TRANSPARENT = "rgba(0,0,0,0)"
-BG_DARK     = "#0B0F14"
-BG_MID      = "#111820"
+# ── Shell geometry constants (from STL analysis) ──────────────────────────────
+SHELL_DIAMETER = 350.65
+SHELL_HEIGHT   = 90.12
+SHELL_BOTTOM_Z = -10.0
+SHELL_TOP_Z    = 80.12
 
-STATE_COLORS = {
-    "positive": "#4CAF50",
-    "neutral":  "#FFC107",
-    "negative": "#F44336",
-}
+# Landing plate specs (David Clark)
+PLATE_DIAMETER = SHELL_DIAMETER * 1.30
+PLATE_THICKNESS = 3.0
+DESIGN_GAP = 0.40 * 350.65 / 9.0
+PLATE_Z = SHELL_BOTTOM_Z - DESIGN_GAP
 
-# ── Module-level mesh cache (loaded once, reused forever) ─────────────────────
-_MESH_CACHE = {}
+# Animation Z offsets
+Z_OFFSET_POSITIVE = 60.0
+Z_OFFSET_NEUTRAL  = 0.0
+Z_OFFSET_NEGATIVE = -15.0
 
-# ── Path resolution ───────────────────────────────────────────────────────────
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_DATA = os.path.join(_HERE, "..", "data")
-
-MESH_PATHS = {
-    "light": os.path.join(_DATA, "vca_shell_mesh_light.json"),
-    "full":  os.path.join(_DATA, "vca_shell_mesh.json"),
-}
+# ── Lazy mesh cache ───────────────────────────────────────────────────────────
+_mesh_cache = {}
 
 
-# ── Mesh loader with cache ────────────────────────────────────────────────────
-def _load_mesh(quality: str = "light") -> dict | None:
-    """Load mesh from disk on first call, return cached version thereafter."""
-    key = quality if quality in MESH_PATHS else "light"
-
-    if key in _MESH_CACHE:
-        return _MESH_CACHE[key]
-
-    path = MESH_PATHS[key]
-
-    # If full mesh not deployed (excluded by .gitignore), fall back to light
-    if not os.path.exists(path):
-        if key == "full":
-            fallback = MESH_PATHS["light"]
-            if os.path.exists(fallback):
-                key = "light"
-                path = fallback
-            else:
-                _MESH_CACHE[key] = None
-                return None
-        else:
-            _MESH_CACHE[key] = None
-            return None
-
-    try:
-        with open(path, "r") as f:
-            mesh = json.load(f)
-        _MESH_CACHE[key] = mesh
-        return mesh
-    except (json.JSONDecodeError, OSError):
-        _MESH_CACHE[key] = None
-        return None
+def _data_dir():
+    return os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 
 
-# ── Parametric sphere fallback ────────────────────────────────────────────────
-def _parametric_sphere(r: float = 5.1, n: int = 40) -> tuple:
-    """Generate a simple UV sphere as fallback when mesh files unavailable."""
-    u = np.linspace(0, 2 * math.pi, n)
-    v = np.linspace(0, math.pi, n)
-    x = r * np.outer(np.cos(u), np.sin(v)).flatten()
-    y = r * np.outer(np.sin(u), np.sin(v)).flatten()
-    z = r * np.outer(np.ones(n), np.cos(v)).flatten()
+def load_shell_mesh(quality="light"):
+    """Load VCA shell mesh from JSON, cached after first load."""
+    global _mesh_cache
 
-    # Build triangle indices
-    i_idx, j_idx, k_idx = [], [], []
-    for a in range(n - 1):
-        for b in range(n - 1):
-            p = a * n + b
-            i_idx += [p, p + 1]
-            j_idx += [p + n, p + n]
-            k_idx += [p + n + 1, p + n + 1]
+    if quality in _mesh_cache:
+        return _mesh_cache[quality]
 
-    return (x.tolist(), y.tolist(), z.tolist(),
-            i_idx, j_idx, k_idx)
+    data_dir = _data_dir()
+
+    # Preference order: requested quality -> other quality -> None
+    candidates = {
+        "light": [
+            os.path.join(data_dir, "vca_shell_mesh_light.json"),
+            os.path.join(data_dir, "vca_shell_mesh.json"),
+        ],
+        "full": [
+            os.path.join(data_dir, "vca_shell_mesh.json"),
+            os.path.join(data_dir, "vca_shell_mesh_light.json"),
+        ],
+    }
+
+    for path in candidates.get(quality, candidates["light"]):
+        if os.path.exists(path):
+            try:
+                with open(path, "r") as f:
+                    mesh = json.load(f)
+                _mesh_cache[quality] = mesh
+                return mesh
+            except (json.JSONDecodeError, OSError):
+                continue
+
+    _mesh_cache[quality] = None
+    return None
 
 
-# ── Z offset for buoyancy state ───────────────────────────────────────────────
-def _z_offset(buoyancy_state: str, net_force_N: float) -> float:
-    """Compute shell Z position based on buoyancy state."""
-    if buoyancy_state == "positive":
-        magnitude = min(abs(net_force_N) / 5000.0, 1.0)
-        return 0.4 + magnitude * 2.5
-    elif buoyancy_state == "negative":
-        magnitude = min(abs(net_force_N) / 5000.0, 1.0)
-        return 0.4 - magnitude * 1.5
-    else:
-        return 0.4  # design gap: 0.40 m
+# ── Landing plate ─────────────────────────────────────────────────────────────
+def create_landing_plate(z_position, diameter, resolution=60):
+    radius = diameter / 2.0
+    angles = np.linspace(0, 2 * np.pi, resolution, endpoint=False)
+    cx, cy = 0.0, 0.0
+    x_vals = [cx] + [cx + radius * np.cos(a) for a in angles]
+    y_vals = [cy] + [cy + radius * np.sin(a) for a in angles]
+    z_vals = [z_position] * (resolution + 1)
+    i_vals, j_vals, k_vals = [], [], []
+    for idx in range(resolution):
+        i_vals.append(0)
+        j_vals.append(idx + 1)
+        k_vals.append((idx + 1) % resolution + 1)
+    return {"x": x_vals, "y": y_vals, "z": z_vals,
+            "i": i_vals, "j": j_vals, "k": k_vals}
+
+
+# ── Magnetic ring ─────────────────────────────────────────────────────────────
+def create_magnetic_ring(z_position, inner_r, outer_r, resolution=60):
+    angles = np.linspace(0, 2 * np.pi, resolution, endpoint=False)
+    x_vals, y_vals, z_vals = [], [], []
+    i_vals, j_vals, k_vals = [], [], []
+    for a in angles:
+        x_vals.append(inner_r * np.cos(a))
+        y_vals.append(inner_r * np.sin(a))
+        z_vals.append(z_position)
+    for a in angles:
+        x_vals.append(outer_r * np.cos(a))
+        y_vals.append(outer_r * np.sin(a))
+        z_vals.append(z_position)
+    n = resolution
+    for idx in range(n):
+        next_idx = (idx + 1) % n
+        i_vals.extend([idx, idx, n + idx])
+        j_vals.extend([next_idx, n + idx, n + next_idx])
+        k_vals.extend([n + idx, n + next_idx, next_idx])
+    return {"x": x_vals, "y": y_vals, "z": z_vals,
+            "i": i_vals, "j": j_vals, "k": k_vals}
 
 
 # ── Main scene builder ────────────────────────────────────────────────────────
-def build_3d_scene(
-    buoyancy_state: str,
-    net_force_N: float,
-    quality: str = "light",
-) -> go.Figure:
+def build_3d_scene(buoyancy_state, net_force_N=0.0, quality="light"):
     """
-    Build the 3D ConOps visualization.
+    Build the complete 3D ConOps visualization.
 
     Parameters
     ----------
-    buoyancy_state : "positive" | "neutral" | "negative"
-    net_force_N    : net vertical force in Newtons
-    quality        : "light" (default, Render-safe) | "full" (local only)
-
-    Returns
-    -------
-    Plotly Figure
+    buoyancy_state : str
+        "Positive Buoyancy", "Neutral Buoyancy", or "Negative Buoyancy"
+    net_force_N : float
+        Net vertical force for proportional animation offset.
+    quality : str
+        "light" (default, Render-safe) or "full" (local only)
     """
-    state_color = STATE_COLORS.get(buoyancy_state, STATE_COLORS["neutral"])
-    z_off = _z_offset(buoyancy_state, net_force_N)
+    mesh = load_shell_mesh(quality)
+
+    # Z offset based on buoyancy state
+    if buoyancy_state == "Positive Buoyancy":
+        z_offset = min(Z_OFFSET_POSITIVE, max(10.0, abs(net_force_N) / 100.0))
+    elif buoyancy_state == "Negative Buoyancy":
+        z_offset = Z_OFFSET_NEGATIVE
+    else:
+        z_offset = Z_OFFSET_NEUTRAL
+
+    # Shell color matches buoyancy state
+    state_colors = {
+        "Positive Buoyancy": C_GREEN,
+        "Neutral Buoyancy":  C_AMBER,
+        "Negative Buoyancy": C_RED,
+    }
+    shell_color = state_colors.get(buoyancy_state, C_TEXT_DIM)
 
     fig = go.Figure()
 
-    # ── Shell mesh (or parametric fallback) ───────────────────────────────────
-    mesh = _load_mesh(quality)
-
-    if mesh is not None:
-        x = [v + 0      for v in mesh["x"]]
-        y = [v + 0      for v in mesh["y"]]
-        z = [v + z_off  for v in mesh["z"]]
+    # ── VCA Body Shell ────────────────────────────────────────────────────────
+    if mesh:
+        z_shifted = [z + z_offset for z in mesh["z"]]
         fig.add_trace(go.Mesh3d(
-            x=x, y=y, z=z,
+            x=mesh["x"], y=mesh["y"], z=z_shifted,
             i=mesh["i"], j=mesh["j"], k=mesh["k"],
-            color="#8B9EB5",
-            opacity=0.75,
-            flatshading=False,
+            color=shell_color,
+            opacity=0.85,
+            flatshading=True,
             lighting=dict(
-                ambient=0.5,
-                diffuse=0.7,
-                specular=0.3,
-                roughness=0.6,
-                fresnel=0.2,
+                ambient=0.4, diffuse=0.6, specular=0.3,
+                roughness=0.5, fresnel=0.2,
             ),
-            lightposition=dict(x=1000, y=1000, z=2000),
-            name="VCA Shell",
+            lightposition=dict(x=200, y=200, z=300),
+            name="VCA Body Shell",
             showlegend=True,
-            hoverinfo="skip",
+            hoverinfo="name",
         ))
     else:
         # Parametric sphere fallback
-        sx, sy, sz, si, sj, sk = _parametric_sphere(r=5.1)
-        sz = [v + z_off for v in sz]
-        fig.add_trace(go.Mesh3d(
-            x=sx, y=sy, z=sz,
-            i=si, j=sj, k=sk,
-            color="#8B9EB5", opacity=0.75,
-            name="VCA Shell (parametric)",
-            showlegend=True, hoverinfo="skip",
+        u = np.linspace(0, 2 * np.pi, 30)
+        v = np.linspace(0, np.pi, 20)
+        r = SHELL_DIAMETER / 2
+        x = r * np.outer(np.cos(u), np.sin(v)).flatten()
+        y = r * np.outer(np.sin(u), np.sin(v)).flatten()
+        z = (r * np.outer(np.ones(np.size(u)), np.cos(v)).flatten()
+             + SHELL_TOP_Z / 2 + z_offset)
+        fig.add_trace(go.Scatter3d(
+            x=x, y=y, z=z, mode="markers",
+            marker=dict(size=1, color=shell_color, opacity=0.5),
+            name="VCA Shell (simplified)",
         ))
 
-    # ── Landing plate ─────────────────────────────────────────────────────────
-    plate_r = 7.0
-    theta   = np.linspace(0, 2 * math.pi, 64)
-    px = (plate_r * np.cos(theta)).tolist()
-    py = (plate_r * np.sin(theta)).tolist()
-    pz = [0.0] * 64
-
-    fig.add_trace(go.Scatter3d(
-        x=px, y=py, z=pz,
-        mode="lines",
-        line=dict(color="#4A7A9B", width=3),
+    # ── Landing Plate (legend-toggleable) ─────────────────────────────────────
+    plate = create_landing_plate(PLATE_Z, PLATE_DIAMETER)
+    fig.add_trace(go.Mesh3d(
+        x=plate["x"], y=plate["y"], z=plate["z"],
+        i=plate["i"], j=plate["j"], k=plate["k"],
+        color="#4A7A9B",
+        opacity=0.6,
+        flatshading=True,
         name="Landing Plate",
         showlegend=True,
-        hoverinfo="skip",
+        visible="legendonly",
+        hoverinfo="name",
     ))
 
-    # ── Magnetic coil ─────────────────────────────────────────────────────────
-    coil_r = 3.5
-    cx = (coil_r * np.cos(theta)).tolist()
-    cy = (coil_r * np.sin(theta)).tolist()
-    cz = [0.02] * 64
-
-    fig.add_trace(go.Scatter3d(
-        x=cx, y=cy, z=cz,
-        mode="lines",
-        line=dict(color="#FFC107", width=2),
+    # ── Magnetic Coil (legend-toggleable) ─────────────────────────────────────
+    coil_inner = PLATE_DIAMETER * 0.15
+    coil_outer = PLATE_DIAMETER * 0.25
+    coil = create_magnetic_ring(PLATE_Z + PLATE_THICKNESS, coil_inner, coil_outer)
+    fig.add_trace(go.Mesh3d(
+        x=coil["x"], y=coil["y"], z=coil["z"],
+        i=coil["i"], j=coil["j"], k=coil["k"],
+        color="#FFC107",
+        opacity=0.8,
+        flatshading=True,
         name="Magnetic Coil",
         showlegend=True,
-        hoverinfo="skip",
-    ))
-
-    # ── State arrow ───────────────────────────────────────────────────────────
-    arrow_tip  = z_off + (1.5 if buoyancy_state == "positive" else
-                          -1.0 if buoyancy_state == "negative" else 0)
-    arrow_base = z_off
-
-    fig.add_trace(go.Scatter3d(
-        x=[0, 0], y=[0, 0], z=[arrow_base, arrow_tip],
-        mode="lines",
-        line=dict(color=state_color, width=6),
-        name=f"State: {buoyancy_state.capitalize()}",
-        showlegend=True,
-        hoverinfo="skip",
+        visible="legendonly",
+        hoverinfo="name",
     ))
 
     # ── Layout ────────────────────────────────────────────────────────────────
@@ -227,31 +230,41 @@ def build_3d_scene(
         title="",
     )
 
+    z_range_min = PLATE_Z - 20
+    z_range_max = SHELL_TOP_Z + Z_OFFSET_POSITIVE + 20
+
     fig.update_layout(
         scene=dict(
             xaxis=dict(**axis_style),
             yaxis=dict(**axis_style),
-            zaxis=dict(**axis_style, range=[-3, 12]),
-            bgcolor=BG_DARK,
+            zaxis=dict(**axis_style, range=[z_range_min, z_range_max]),
+            bgcolor=TRANSPARENT,
             aspectmode="data",
             camera=dict(
-                eye=dict(x=1.4, y=1.4, z=0.8),
+                eye=dict(x=1.5, y=1.5, z=0.8),
                 up=dict(x=0, y=0, z=1),
             ),
         ),
         uirevision="constant",
         paper_bgcolor=TRANSPARENT,
         plot_bgcolor=TRANSPARENT,
-        font=dict(color=C_TEXT, size=11),
-        margin=dict(l=0, r=0, t=0, b=0),
-        height=400,
+        margin=dict(l=0, r=0, t=30, b=0),
+        height=450,
+        showlegend=True,
         legend=dict(
-            font=dict(color=C_TEXT, size=10),
-            bgcolor="rgba(11,15,20,0.7)",
-            bordercolor="#1E2A38",
-            borderwidth=1,
+            font=dict(size=10, color=C_TEXT_DIM),
+            bgcolor="rgba(0,0,0,0)",
             x=0.01, y=0.99,
         ),
+        annotations=[
+            dict(
+                text=f"<b>{buoyancy_state.upper()}</b>",
+                x=0.5, y=0.97, xref="paper", yref="paper",
+                showarrow=False,
+                font=dict(size=14, color=shell_color, family=FONT_FAMILY),
+            ),
+        ],
+        font=dict(color=C_TEXT, family=FONT_FAMILY),
     )
 
     return fig
